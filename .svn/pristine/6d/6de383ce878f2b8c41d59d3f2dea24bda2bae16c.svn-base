@@ -1,0 +1,13 @@
+//
+//  AppDelegate+DismissKeyboard.h
+//  使用masonry布局
+//
+//  Created by 吕松松 on 2017/11/21.
+//  Copyright © 2017年 吕松松. All rights reserved.
+//
+
+#import "AppDelegate.h"
+
+@interface AppDelegate (DismissKeyboard)
+- (void)openTouchOutsideDismissKeyboard;
+@end

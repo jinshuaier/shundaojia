@@ -1,0 +1,404 @@
+//
+//  TCMapViewController.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/11/30.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "TCMapViewController.h"
+#import "TCSearchMapViewController.h"
+#import "TCLocation.h"
+#import <AMapLocationKit/AMapLocationKit.h>
+#import "TCNearAddInfo.h"
+
+
+@interface TCMapViewController ()<MAMapViewDelegate,AMapLocationManagerDelegate,AMapSearchDelegate,UITextFieldDelegate>
+@property (nonatomic, strong) MAMapView *mapView; //地图
+@property (nonatomic, strong) MAPointAnnotation *pointAnnotaiton; //自定义大头针
+@property (nonatomic, strong) AMapLocationManager *locationManager;
+@property (nonatomic, strong) AMapSearchAPI *search;
+@property (nonatomic, strong) MAUserLocation *userLocation;
+@property (nonatomic, strong) TCLocation *location;
+@property (nonatomic, strong) UILabel *labelLocation; //位置
+@property (nonatomic, strong) UITextField *disField; //详细位置
+@property (nonatomic, strong) NSString *disStr;
+
+@property (nonatomic, strong) TCNearAddInfo *model;
+
+@property (nonatomic, strong) NSMutableArray *dataArray;
+
+@end
+
+@implementation TCMapViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"选择地址";
+    self.view.backgroundColor = TCBgColor;
+    
+    self.dataArray = [NSMutableArray array];
+    //新增地址
+    UIButton *rightBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    [rightBtn setImage:[UIImage imageNamed:@"首页搜索图标"] forState:(UIControlStateNormal)];
+    rightBtn.frame = CGRectMake(WIDTH - 12 - 24, 10 + StatusBarHeight, 24, 24);
+    [rightBtn addTarget:self action:@selector(clickRightBtn) forControlEvents:(UIControlEventTouchUpInside)];
+    UIBarButtonItem *rightBtnItem = [[UIBarButtonItem alloc]initWithCustomView:rightBtn];
+   // self.navigationItem.rightBarButtonItem = rightBtnItem;
+    
+   
+    //创建Map地图
+    [self initMapView];
+    //添加逆编码
+//    [self searchReGeo];
+    
+    //自定义的大头针
+    UIImageView *pointImage = [[UIImageView alloc] init];
+    pointImage.frame = CGRectMake((WIDTH - 15)/2, (self.view.frame.size.height - 24)/2, 15, 24);
+    pointImage.image = [UIImage imageNamed:@"地图上搜索的位置图标"];
+    [self.view addSubview:pointImage];
+}
+//创建地图
+- (void)initMapView
+{
+    if (self.mapView == nil)
+    {
+        self.mapView = [[MAMapView alloc] initWithFrame:self.view.bounds];
+        self.mapView.delegate = self;
+        //范围圈自定义
+        self.mapView.customizeUserLocationAccuracyCircleRepresentation = YES;
+        self.mapView.showsUserLocation = YES; //开启定位
+//        self.locationManager = [[AMapLocationManager alloc]init];
+//        self.locationManager.delegate = self;
+//        [self.locationManager setDesiredAccuracy:(kCLLocationAccuracyBest)];
+//        [self.locationManager startUpdatingLocation];
+        [_mapView setUserTrackingMode: MAUserTrackingModeFollow animated:YES]; //地图跟着位置移动，并将定位点设置成地图中心点。
+        [_mapView setZoomLevel:16.1 animated:YES];
+        [self.view addSubview:self.mapView];
+        
+        //去掉logo的图标
+        [self deleLogo];
+        
+        //添加地图的信息
+        [self createView];
+        
+        //初始化大头针
+        self.pointAnnotaiton = [[MAPointAnnotation alloc] init];
+        [_mapView addAnnotation:self.pointAnnotaiton];
+    }
+}
+
+-(void)amapLocationManager:(AMapLocationManager *)manager didUpdateLocation:(CLLocation *)location{
+    NSLog(@"经纬度:%f-%f",location.coordinate.latitude, location.coordinate.longitude);
+}
+
+#pragma mark - MAMapViewDelegate
+-(void)mapView:(MAMapView *)mapView didUpdateUserLocation:(MAUserLocation *)userLocation updatingLocation:(BOOL)updatingLocation
+{
+//        NSLog(@"latitude : %f , longitude : %f",userLocation.coordinate.latitude,userLocation.coordinate.longitude);
+}
+
+//地图移动结束后调用
+- (void)mapView:(MAMapView *)mapView regionDidChangeAnimated:(BOOL)animated
+{
+        NSLog(@"%f,%f",mapView.centerCoordinate.latitude,mapView.centerCoordinate.longitude);
+    if(mapView)
+    {
+        //取出当前位置的坐标
+                NSLog(@"latitude : %f,longitude: %f",mapView.centerCoordinate.latitude,mapView.centerCoordinate.longitude);
+        //逆编码
+        self.search = [[AMapSearchAPI alloc] init];
+        self.search.delegate = self;
+        
+        AMapReGeocodeSearchRequest *regeo = [[AMapReGeocodeSearchRequest alloc] init];
+        regeo.location = [AMapGeoPoint locationWithLatitude:mapView.centerCoordinate.latitude longitude:mapView.centerCoordinate.longitude];
+        regeo.requireExtension = YES;
+        //发起逆地理编码
+        [self.search AMapReGoecodeSearch:regeo];
+        
+        //进行POI搜索
+        if (_search == nil){
+            return;
+        }
+        //设置周边请求参数
+        AMapPOIAroundSearchRequest *request = [[AMapPOIAroundSearchRequest alloc] init];
+        request.location = [AMapGeoPoint locationWithLatitude:mapView.centerCoordinate.latitude longitude:mapView.centerCoordinate.longitude];
+        //request.types = @"风景名胜";
+        request.sortrule = 0;
+        request.requireExtension = YES;
+        
+        [_search AMapPOIAroundSearch:request];
+    }
+}
+
+//实现逆地理编码的回调函数
+- (void)onReGeocodeSearchDone:(AMapReGeocodeSearchRequest *)request response:(AMapReGeocodeSearchResponse *)response
+{
+    if(response.regeocode != nil)
+    {
+        //通过AMapReGeocodeSearchResponse对象处理搜索结果
+        NSString *result = [NSString stringWithFormat:@"ReGeocode: %@", response.regeocode];
+        NSLog(@"ReGeo: %@ -%@- %@", result,response.regeocode.formattedAddress,response.regeocode.addressComponent.streetNumber.street);
+//        self.disField.text = response.regeocode.addressComponent.streetNumber.street;
+//        self.labelLocation.text = [NSString stringWithFormat:@"%@%@%@",response.regeocode.addressComponent.township,response.regeocode.addressComponent.neighborhood,response.regeocode.addressComponent.building];
+        
+    }
+}
+
+//POI搜索回调的方法
+- (void)onPOISearchDone:(AMapPOISearchBaseRequest *)request response:(AMapPOISearchResponse *)response
+{
+    if (response.pois.count == 0){
+        return;
+    }
+    
+    for (AMapPOI *poi in response.pois) {
+        NSString *name = poi.name;
+        NSString *address = poi.address;
+        NSString *district = poi.district;
+        
+        NSString *location = [NSString stringWithFormat:@"%@",poi.location];
+        NSString *cccc = [location substringToIndex:[location length] - 1];
+        NSMutableString *ccc = [NSMutableString stringWithFormat:cccc];
+         [ccc deleteCharactersInRange:NSMakeRange(0, 1)];
+//        NSString * longitude = [NSString stringWithFormat:@"%f",poi.location.longitude];
+//        NSString * latitude = [NSString stringWithFormat:@"%f",poi.location.latitude];
+        NSDictionary *dic1 = @{@"name":name,@"address":address,@"district":district,@"location":ccc};
+        TCNearAddInfo *model = [TCNearAddInfo orderInfoWithDictionary:dic1];
+        [self.dataArray addObject:model];
+    }
+    self.model = self.dataArray[0];
+  
+    self.labelLocation.text = response.pois[0].name;
+    self.disField.text = response.pois[0].address;
+}
+//添加地图的信息View
+- (void)createView {
+    
+    //确定的按钮
+    UIButton *okBtn = [UIButton buttonWithType:(UIButtonTypeCustom)];
+    okBtn.frame = CGRectMake(12, HEIGHT - 12 - 48 - TabbarSafeBottomMargin, WIDTH - 24, 48);
+    okBtn.backgroundColor = TCUIColorFromRGB(0xF99E20);
+    [okBtn setTitle:@"确定" forState:(UIControlStateNormal)];
+    okBtn.layer.masksToBounds = YES;
+    okBtn.layer.cornerRadius = 4;
+    [okBtn setTitleColor:TCUIColorFromRGB(0xFFFFFF) forState:(UIControlStateNormal)];
+    okBtn.titleLabel.font = [UIFont fontWithName:@"PingFangSC-Medium" size:18];
+    [okBtn addTarget:self action:@selector(ok:) forControlEvents:(UIControlEventTouchUpInside)];
+    [self.mapView addSubview:okBtn];
+    
+    //添加View
+    UIView *locationView = [[UIView alloc] init];
+    locationView.frame = CGRectMake(12, okBtn.frame.origin.y - 12 - 52 - 50, WIDTH - 24, 52 + 50);
+    locationView.backgroundColor = [UIColor whiteColor];
+    locationView.layer.masksToBounds = YES;
+    locationView.layer.cornerRadius = 4;
+    [self.mapView addSubview:locationView];
+    
+    //小View
+    UIView *dingweiView = [[UIView alloc] init];
+    dingweiView.frame = CGRectMake(0, 0, WIDTH - 24, 52);
+    [locationView addSubview:dingweiView];
+    
+    //添加图标、文字、图片、输入框
+    UIImageView *imageLocation = [[UIImageView alloc] init];
+    imageLocation.image = [UIImage imageNamed:@"位置图标(面)"];
+    imageLocation.frame = CGRectMake(12, 17, 15, 18);
+    [dingweiView addSubview:imageLocation];
+    
+    self.labelLocation = [[UILabel alloc] init];
+    self.labelLocation.frame = CGRectMake(CGRectGetMaxX(imageLocation.frame) + 8, 0, WIDTH - 24 - 12 - 12 - CGRectGetMaxX(imageLocation.frame) - 13, 52);
+    self.labelLocation.text = @"金融街园中园";
+    self.labelLocation.textAlignment = NSTextAlignmentLeft;
+    self.labelLocation.textColor = TCUIColorFromRGB(0x333333);
+    self.labelLocation.font = [UIFont fontWithName:@"PingFangSC-Medium" size:15];
+    [dingweiView addSubview:self.labelLocation];
+    
+    UIImageView *intImage = [[UIImageView alloc] init];
+    intImage.image = [UIImage imageNamed:@"进入小三角（灰）"];
+    intImage.frame = CGRectMake(WIDTH - 24 - 12 - 6, (52 - 6)/2, 6, 8);
+    [dingweiView addSubview:intImage];
+    
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap)];
+    [dingweiView addGestureRecognizer:tap];
+    
+    //细线
+    UIView *lineView = [[UIView alloc] init];
+    lineView.frame = CGRectMake(0, CGRectGetMaxY(dingweiView.frame), WIDTH - 24, 1);
+    lineView.backgroundColor = TCLineColor;
+    [dingweiView addSubview:lineView];
+    
+    //详细的地址
+//    self.disField = [UILabel publicLab:@"朝阳北路与温榆河西路交汇处北2公里" textColor:TCUIColorFromRGB(0x666666) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+//    self.disField.
+    self.disField = [[UITextField alloc]initWithFrame:CGRectMake(12, CGRectGetMaxY(lineView.frame), WIDTH - 12 - 12, 50)];
+    self.disField.textAlignment = NSTextAlignmentLeft;
+   // self.disField.backgroundColor = TCUIColorFromRGB(0x000000);
+    [self.disField setEnabled:NO];
+    self.disField.delegate = self;
+    self.disField.borderStyle = UITextBorderStyleNone;
+    self.disField.font = [UIFont fontWithName:@"PingFangSC-Regular" size:14];
+    self.disField.textColor = TCUIColorFromRGB(0x666666);
+    [locationView addSubview:self.disField];
+    
+    UIButton *locationBtn = [UIButton buttonWithType:(UIButtonTypeCustom)];
+    locationBtn.frame = CGRectMake(WIDTH - 12 - 36, locationView.frame.origin.y - 16 - 36, 36, 36);
+    [locationBtn setImage:[UIImage imageNamed:@"定位（地图）"] forState:(UIControlStateNormal)];
+    [locationBtn addTarget:self action:@selector(locationBtn:) forControlEvents:(UIControlEventTouchUpInside)];
+    [self.mapView addSubview:locationBtn];
+
+    
+}
+
+#pragma mark - MAMapView Delegate
+
+- (MAAnnotationView *)mapView:(MAMapView *)mapView viewForAnnotation:(id<MAAnnotation>)annotation
+{
+    if ([annotation isKindOfClass:[MAPointAnnotation class]])
+    {
+        static NSString *pointReuseIndetifier = @"pointReuseIndetifier";
+        MAPinAnnotationView *annotationView = (MAPinAnnotationView *)[mapView dequeueReusableAnnotationViewWithIdentifier:pointReuseIndetifier];
+        if (annotationView == nil)
+        {
+            annotationView = [[MAPinAnnotationView alloc] initWithAnnotation:annotation reuseIdentifier:pointReuseIndetifier];
+        }
+        annotationView.canShowCallout   = NO;
+        annotationView.animatesDrop     = NO;
+        annotationView.draggable        = NO;
+        annotationView.image            = [UIImage imageNamed:@"地图上搜索的位置图标"];
+        return annotationView;
+    }
+    
+    return nil;
+}
+
+//去掉高德logo图标
+- (void)deleLogo
+{
+    [self.mapView.subviews enumerateObjectsUsingBlock:^(__kindof UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj isKindOfClass:[UIImageView class]]) {
+            
+            UIImageView * logoM = obj;
+            
+            logoM.layer.contents = (__bridge id)[UIImage imageNamed:@""].CGImage;
+        }
+    }];
+}
+
+//范围圈的回调函数
+- (MAOverlayRenderer *)mapView:(MAMapView *)mapView rendererForOverlay:(id<MAOverlay>)overlay
+{
+    /* 自定义定位精度对应的MACircleView. */
+    
+    if(overlay == mapView.userLocationAccuracyCircle)
+        {
+            MACircle *accuracyCircleView = (MACircle *)overlay  ;
+            MACircleRenderer *circleRend = [[MACircleRenderer alloc] initWithCircle:accuracyCircleView];
+            circleRend.alpha = 0.3;
+            //  填充颜色
+            circleRend.fillColor = [TCUIColorFromRGB(0xFF4C79) colorWithAlphaComponent:0.2];
+            //  边框颜色
+            circleRend.strokeColor = TCUIColorFromRGB(0xFF4C79);
+            return circleRend;
+    }
+    return nil;
+}
+
+#pragma mark -- 手势点击事件
+- (void)tap
+{
+    NSLog(@"地图商圈");
+    TCSearchMapViewController *searchMapVC = [[TCSearchMapViewController alloc] init];
+    searchMapVC.adressArr = self.dataArray;
+    searchMapVC.addressBlock = ^(TCNearAddInfo *model) {
+        self.labelLocation.text = model.name;
+        self.disField.text = model.address;
+        self.model = model;
+    };
+    [self.navigationController pushViewController:searchMapVC animated:YES];
+}
+#pragma mark -- 确定的按钮
+- (void)ok:(UIButton *)sender
+{
+    NSLog(@"确定的按钮");
+    NSString *address = [NSString stringWithFormat:@"%@%@",self.labelLocation.text,self.disField.text];
+    TCNearAddInfo *model = self.model;
+    self.diBlock(address, model.latitude, model.longitude);
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark -- 搜索
+- (void)clickRightBtn
+{
+    NSLog(@"搜索");
+    TCSearchMapViewController *searchMapVC = [[TCSearchMapViewController alloc] init];
+    searchMapVC.adressArr = self.dataArray;
+    [self.navigationController pushViewController:searchMapVC animated:YES];
+}
+#pragma mark -- 重新定位按钮的点击事件
+- (void)locationBtn:(UIButton *)sender
+{
+   // self.mapView.showsUserLocation = YES; //开启定位
+    //开始定位
+    //self.pointAnnotaiton.coordinate = self.userLocation.coordinate;
+}
+-(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
+   
+    
+    [self.disField resignFirstResponder];
+    //结束编辑时整个试图返回原位
+    [self.disField resignFirstResponder];
+    [UIView beginAnimations:@"down" context:nil];
+    [UIView setAnimationDuration:0.5];
+    [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+    self.view.frame = CGRectMake(0, 0, WIDTH, HEIGHT );
+    [UIView commitAnimations];
+    
+}
+#pragma mark - UITextFieldDelegate
+- (BOOL)textFieldShouldBeginEditing:(UITextField *)textField
+{
+    
+            //开始编辑时使整个视图整体向上移
+            [UIView beginAnimations:@"up" context:nil];
+            [UIView setAnimationDuration:0.5];
+            [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+            self.view.frame = CGRectMake(0, -300, self.view.bounds.size.width, self.view.bounds.size.height);
+            [UIView commitAnimations];
+            
+    
+    return YES;
+}
+#pragma mark -- 点击return 下滑
+- (BOOL)textFieldShouldReturn:(UITextField *)textField
+
+{
+    [textField resignFirstResponder];
+    //结束编辑时整个试图返回原位
+    [textField resignFirstResponder];
+    [UIView beginAnimations:@"down" context:nil];
+    [UIView setAnimationDuration:0.5];
+    [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+    self.view.frame = CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT );
+    [UIView commitAnimations];
+    
+    return YES;
+}
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

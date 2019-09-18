@@ -1,0 +1,246 @@
+//
+//  AppDelegate.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/10/9.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "AppDelegate.h"
+#import "TCTabBarController.h"
+#import "TCLoginViewController.h"
+#import "TCGuideFigureTool.h"
+#import "TCGuideFigureShowVC.h"
+#import "TCGuideFigure.h"
+#import "JPUSHService.h"
+#import "TCTabBarController.h"
+#import <AMapFoundationKit/AMapFoundationKit.h>
+#import "TCFirstStartViewController.h"
+//友盟的头文件
+#import "UMMobClick/MobClick.h"
+#import "BaiduMobStat.h"
+
+@interface AppDelegate () <WXApiDelegate>
+@property (nonatomic, strong) NSUserDefaults *userdefault;
+
+@end
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    
+    [self openTouchOutsideDismissKeyboard];
+    
+    //创建View
+    [self createView];
+    
+    //向微信注册
+    [WXApi registerApp:ShareWeChatAppId];
+    
+    //高德地图
+    [AMapServices sharedServices].apiKey = (NSString *)AMapKey;
+    
+    //  友盟的方法本身是异步执行，所以不需要再异步调用
+    [self umengTrack];
+    // 百度统计数据
+    [self baiduTongJi];
+    
+    //分享
+    [ShareSDK registerApp:ShareKey activePlatforms:@[@(SSDKPlatformTypeSinaWeibo),@(SSDKPlatformTypeWechat),@(SSDKPlatformTypeQQ)] onImport:^(SSDKPlatformType platformType) {
+        switch (platformType){
+            case SSDKPlatformTypeWechat:
+                [ShareSDKConnector connectWeChat:[WXApi class]];
+                
+                break;
+            case SSDKPlatformTypeQQ:
+                [ShareSDKConnector connectQQ:[QQApiInterface class] tencentOAuthClass:[TencentOAuth class]];
+                break;
+            case SSDKPlatformTypeSinaWeibo:
+                [ShareSDKConnector connectWeibo:[WeiboSDK class]];
+                break;
+            default:
+                break;
+        }
+    }onConfiguration:^(SSDKPlatformType platformType, NSMutableDictionary *appInfo) {
+        switch (platformType){
+            case SSDKPlatformTypeSinaWeibo:
+                //设置新浪微博应用信息,其中authType设置为使用SSO＋Web形式授权
+                [appInfo SSDKSetupSinaWeiboByAppKey:ShareWeiBoKey
+                                          appSecret:ShareWeiBoSecret
+                                        redirectUri:@"moumou"
+                                           authType:SSDKAuthTypeBoth];
+                break;
+            case SSDKPlatformTypeWechat:
+                [appInfo  SSDKSetupWeChatByAppId:ShareWeChatAppId
+                                       appSecret:ShareWeChatSecret];
+                break;
+            case SSDKPlatformTypeQQ:
+                [appInfo SSDKSetupQQByAppId:ShareQQAppId
+                                     appKey:ShareQQKey
+                                   authType:SSDKAuthTypeBoth];
+                break;
+            default:
+                break;
+        }
+    }];
+    
+    //极光推送
+//      [[JPushManager shareJPushManager] cdm_setupWithOption:launchOptions appKey:APIKEY channel:channel apsForProduction:isProduction advertisingIdentifier:nil];
+//    [[JPushManager shareJPushManager] cdm_getRegisterIDCallBack:^(NSString *registerID) {
+//        NSLog(@"----%@",registerID);
+//        NSString *pushID = registerID;
+//        NSUserDefaults *user_registrationID = [NSUserDefaults standardUserDefaults];
+//        [user_registrationID setObject:pushID forKey:@"registrationID"];
+//        [user_registrationID synchronize];
+//    }];
+//
+//    [[JPushManager shareJPushManager] cdm_setBadge:0];
+#pragma mark --- 极光推送
+    if ([[UIDevice currentDevice].systemVersion floatValue] >= 10.0) {
+#ifdef NSFoundationVersionNumber_iOS_9_x_Max
+        JPUSHRegisterEntity *entity = [[JPUSHRegisterEntity alloc] init];
+        if (@available(iOS 10.0, *)) {
+            entity.types = (UNAuthorizationOptionAlert | UNAuthorizationOptionBadge | UNAuthorizationOptionSound);
+        } else {
+            // Fallback on earlier versions
+        }
+        [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
+#endif
+    } else if ([[UIDevice currentDevice].systemVersion floatValue] >= 8.0) {
+        //可以添加自定义categories
+        [JPUSHService registerForRemoteNotificationTypes:(UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert) categories:nil];
+    } else {
+        //categories 必须为nil
+        [JPUSHService registerForRemoteNotificationTypes:(UIRemoteNotificationTypeBadge | UIRemoteNotificationTypeSound | UIRemoteNotificationTypeAlert)
+                                              categories:nil];
+    }
+    //如不需要使用IDFA，advertisingIdentifier 可为nil
+    [JPUSHService setupWithOption:launchOptions appKey:APIKEY
+                          channel:channel
+                 apsForProduction:isProduction
+            advertisingIdentifier:nil];
+    
+    //2.1.9版本新增获取registration id block接口。
+    [JPUSHService registrationIDCompletionHandler:^(int resCode, NSString *registrationID) {
+        if(resCode == 0){
+            NSLog(@"registrationID获取成功：%@",registrationID);
+            NSString *pushID = registrationID;
+            NSUserDefaults *user_registrationID = [NSUserDefaults standardUserDefaults];
+            [user_registrationID setObject:pushID forKey:@"registrationID"];
+            [user_registrationID synchronize];
+        }
+        else{
+            NSLog(@"registrationID获取失败，code：%d",resCode);
+        }
+    }];
+    
+    if (@available(iOS 11.0, *)){//避免滚动视图顶部出现20的空白以及push或者pop的时候页面有一个上移或者下移的异常动画的问题
+        [[UIScrollView appearance] setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    }
+    //发送通知，获取id和自定义消息
+//    [self notification];
+    [application setApplicationIconBadgeNumber:0];
+    
+    //这个判断是在程序没有运行的情况下收到通知，点击通知跳转页面
+    if (launchOptions) {
+        NSDictionary * remoteNotification = [launchOptions objectForKey:UIApplicationLaunchOptionsRemoteNotificationKey];
+        if (remoteNotification) {
+            NSLog(@"推送消息 ==== %@",remoteNotification);
+        }
+        if (IS_iOS8) {
+            UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeBadge | UIUserNotificationTypeAlert | UIUserNotificationTypeSound categories:nil];
+            [application registerUserNotificationSettings:settings];
+        }
+    }
+    //   显示主窗口
+    [self.window makeKeyAndVisible];
+    // Override point for customization after application launch.
+    return YES;
+}
+
+
+#pragma mark -- 创建view
+-(void)createView{
+    self.userdefault = [NSUserDefaults standardUserDefaults];
+        _window = [[UIWindow alloc]initWithFrame:[UIScreen mainScreen].bounds];
+        _window.backgroundColor = [UIColor whiteColor];
+        //主页面
+        TCTabBarController *tab = [[TCTabBarController alloc]init];
+        
+        //启动轮播图
+        TCFirstStartViewController *first = [[TCFirstStartViewController alloc]init];
+        if (![_userdefault boolForKey:@"first"]) {
+            //是第一次启动
+            [_userdefault setBool:YES forKey:@"first"];
+            self.window.rootViewController  = first;
+        }else{
+            self.window.rootViewController  = tab;
+        }
+        [_window makeKeyAndVisible];
+}
+
+
+- (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler
+{
+    // Required, iOS 7 Support
+    [[JPushManager shareJPushManager] cdm_handleRemoteNotification:userInfo];
+    
+    completionHandler(UIBackgroundFetchResultNewData);
+}
+
+
+- (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo {
+    
+    // Required,For systems with less than or equal to iOS6
+    [[JPushManager shareJPushManager] cdm_handleRemoteNotification:userInfo];
+}
+
+// iOS 9 以上请用这个
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary *)options {
+    return [Pingpp handleOpenURL:url withCompletion:nil];
+}
+
+//友盟统计
+- (void)umengTrack {
+    //    [MobClick setAppVersion:XcodeAppVersion]; //参数为NSString * 类型,自定义app版本信息，如果不设置，默认从CFBundleVersion里取
+    [MobClick setLogEnabled:YES];
+    UMConfigInstance.appKey = UMengKey;
+    UMConfigInstance.secret = @"secretstringaldfkals";
+    UMConfigInstance.channelId = @"Shundaojia";//此处为渠道名
+    [MobClick startWithConfigure:UMConfigInstance];
+}
+//百度统计
+-(void)baiduTongJi
+{
+    BaiduMobStat* statTracker = [BaiduMobStat defaultStat];
+    statTracker.enableDebugOn = YES;
+    [statTracker startWithAppId:@"626a0d2ca0"]; // 设置您在mtj网站上添加的app的appkey,此处AppId即为应用的appKey
+}
+
+- (void)applicationWillResignActive:(UIApplication *)application {
+    // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
+    // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+}
+
+
+- (void)applicationDidEnterBackground:(UIApplication *)application {
+    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
+    // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+}
+
+
+- (void)applicationWillEnterForeground:(UIApplication *)application {
+    // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+}
+
+
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+    // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+}
+
+
+- (void)applicationWillTerminate:(UIApplication *)application {
+    // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+}
+
+@end

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ShunDaoJia.ipa</key>
+	<array>
+		<dict>
+			<key>architectures</key>
+			<array>
+				<string>armv7</string>
+				<string>arm64</string>
+			</array>
+			<key>certificate</key>
+			<dict>
+				<key>SHA1</key>
+				<string>8F738D2E506BD93B3825EF78F732A2080CA7FE9F</string>
+				<key>dateExpires</key>
+				<string>2019/5/15</string>
+				<key>type</key>
+				<string>iOS Distribution</string>
+			</dict>
+			<key>entitlements</key>
+			<dict>
+				<key>application-identifier</key>
+				<string>69RSQQWP5Y.com.tcgxsdj.cn</string>
+				<key>aps-environment</key>
+				<string>production</string>
+				<key>beta-reports-active</key>
+				<true/>
+				<key>com.apple.developer.team-identifier</key>
+				<string>69RSQQWP5Y</string>
+				<key>get-task-allow</key>
+				<false/>
+			</dict>
+			<key>name</key>
+			<string>ShunDaoJia.app</string>
+			<key>profile</key>
+			<dict>
+				<key>UUID</key>
+				<string>bd68542d-4c5f-45e6-86dd-39077e0ce2cd</string>
+				<key>name</key>
+				<string>disssss</string>
+			</dict>
+			<key>symbols</key>
+			<true/>
+			<key>team</key>
+			<dict>
+				<key>id</key>
+				<string>69RSQQWP5Y</string>
+				<key>name</key>
+				<string>Common People and Trading (Beijing) Co., Ltd.</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

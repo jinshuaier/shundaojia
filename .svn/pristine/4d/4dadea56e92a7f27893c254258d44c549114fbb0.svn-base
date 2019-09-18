@@ -1,0 +1,235 @@
+//
+//  TCRightTableViewCell.m
+//  shundaojia商家版
+//
+//  Created by 吕松松 on 2017/12/21.
+//  Copyright © 2017年 吕松松. All rights reserved.
+//
+
+#import "TCRightTableViewCell.h"
+#import "TCCategoryModel.h"
+#import "TCShopDataBase.h"
+#import "TCSpecifView.h"
+
+static float kLeftTableViewWidth = 96;
+@interface TCRightTableViewCell ()
+
+@property (nonatomic, strong) TCShopDataBase *dataBase;
+@property (nonatomic, assign) NSInteger shopCount;
+@property (nonatomic, strong) UILabel *countLb;//规格小图标
+
+@end
+@implementation TCRightTableViewCell
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier])
+    {
+        _dataBase = [[TCShopDataBase alloc] initTCDataBase];
+        
+        self.imageV = [[UIImageView alloc] initWithFrame:CGRectMake(8, 8, 72, 72)];
+        [self.contentView addSubview:self.imageV];
+        
+        self.nameLabel = [UILabel publicLab:@"浪琴牌手表瑞士直供" textColor:TCUIColorFromRGB(0x4C4C4C) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Medium" size:15 numberOfLines:0];
+        self.nameLabel.frame = CGRectMake(CGRectGetMaxX(self.imageV.frame) + 8, 8, WIDTH - kLeftTableViewWidth - 12 - (CGRectGetMaxX(self.imageV.frame) + 8), 15);
+        
+        CGSize size = [self.nameLabel sizeThatFits:CGSizeMake(self.contentView.frame.size.width - 12 - (CGRectGetMaxX(self.imageV.frame) + 8), MAXFLOAT)];//根据文字的长度返回一个最佳宽度和高度
+        self.nameLabel.frame = CGRectMake(CGRectGetMaxX(self.imageV.frame) + 8, 8, WIDTH - kLeftTableViewWidth - 12 - (CGRectGetMaxX(self.imageV.frame) + 8), size.height);
+        [self.contentView addSubview:self.nameLabel];
+        //月售
+        self.monthSellLabel = [UILabel publicLab:@"月售45单" textColor:TCUIColorFromRGB(0x808080) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:12 numberOfLines:0];
+        self.monthSellLabel.frame = CGRectMake(CGRectGetMaxX(self.imageV.frame) + 8, CGRectGetMaxY(self.nameLabel.frame) + 4, WIDTH - kLeftTableViewWidth - 12 - (CGRectGetMaxX(self.imageV.frame) + 8), 16);
+        [self.contentView addSubview:self.monthSellLabel];
+        //价格
+        self.priceLabel = [UILabel publicLab:@"¥ 9" textColor:TCUIColorFromRGB(0xFF3355) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangTC-Semibold" size:18 numberOfLines:0];
+        self.priceLabel.frame = CGRectMake(CGRectGetMaxX(self.imageV.frame) + 8, CGRectGetMaxY(self.monthSellLabel.frame) + 13, 100, 22);
+        [self.contentView addSubview:self.priceLabel];
+        
+        //添加按钮
+        self.addBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        self.addBtn.frame = CGRectMake(WIDTH - kLeftTableViewWidth - 24 - 12, CGRectGetMaxY(_monthSellLabel.frame) + 12, 24, 24);
+        [self.addBtn setImage:[UIImage imageNamed:@"加商品"] forState: UIControlStateNormal];
+        [self.addBtn addTarget:self action:@selector(addAction:) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview: self.addBtn];
+        
+        //数量
+        self.numLabel = [[UILabel alloc]initWithFrame:CGRectMake(self.addBtn.frame.origin.x - 40, self.addBtn.frame.origin.y + 2, 40, 20)];
+        self.numLabel.font = [UIFont fontWithName:@"PingFangTC-Semibold" size:15];
+        self.numLabel.textAlignment = NSTextAlignmentCenter;
+        self.numLabel.textColor = TCUIColorFromRGB(0x333333);
+        self.numLabel.text = @"0";
+        [self addSubview:self.numLabel];
+        
+        //减号
+        self.cutBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        self.cutBtn.frame = CGRectMake(self.numLabel.frame.origin.x - 24, self.addBtn.frame.origin.y, 24 , 24);
+        [self.cutBtn setImage:[UIImage imageNamed:@"减号按钮"] forState:UIControlStateNormal];
+        [self.cutBtn addTarget:self action:@selector(cutAction:) forControlEvents:UIControlEventTouchUpInside];
+        self.cutBtn.hidden = YES;
+        [self addSubview: self.cutBtn];
+        
+        //选规格
+        self.selectSort = [UIButton buttonWithType:UIButtonTypeCustom];
+        self.selectSort.frame = CGRectMake(WIDTH - kLeftTableViewWidth - 12 - 52, CGRectGetMaxY(self.monthSellLabel.frame) + 12, 52, 24);
+        [self.selectSort setTitle:@"选规格" forState:(UIControlStateNormal)];
+        self.selectSort.titleLabel.font = [UIFont fontWithName:@"PingFangSC-Regular" size:12];
+        self.selectSort.layer.cornerRadius = 4;
+        self.selectSort.layer.masksToBounds = YES;
+        self.selectSort.backgroundColor = TCUIColorFromRGB(0xF99E20);
+        self.selectSort.hidden = YES;
+        [self.selectSort addTarget:self action:@selector(chooseSort:) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview: self.selectSort];
+        
+        //选择规格的圆点
+        self.countLb = [[UILabel alloc] initWithFrame:CGRectMake(self.selectSort.qh_right - 8, self.selectSort.qh_y - 8, 16, 16)];
+        self.countLb.font = [UIFont systemFontOfSize:10];
+        self.countLb.backgroundColor = TCUIColorFromRGB(0xFF3355);
+        self.countLb.textColor = TCUIColorFromRGB(0xFFFFFF);
+        self.countLb.layer.cornerRadius = 16 / 2;
+        self.countLb.layer.masksToBounds = YES;
+        self.countLb.textAlignment = NSTextAlignmentCenter;
+        self.countLb.hidden = YES;
+        [self addSubview:self.countLb];
+        
+    }
+    return self;
+}
+
+- (void)resetShopCarInfo {
+    //读取数据库
+     NSMutableArray *shopCarArr = [self.dataBase bianliFMDB:self.shopModel.shopStoreID];
+    //先判断是否有规格
+    NSString *hasSpec = @"0";
+    if ([hasSpec isEqualToString:@"0"])  {
+        //普通加减
+        self.numLabel.hidden = YES;
+        NSDictionary *currentSelected;
+        for (NSDictionary *dict in shopCarArr) {
+            if ([dict[@"shopID"] isEqualToString:self.shopModel.shopGoodsID]) {
+                currentSelected = dict;
+            }
+        }
+        //如果遍历后有值
+        if (currentSelected.count != 0 ) {
+            self.cutBtn.hidden = NO;
+            self.addBtn.hidden = NO;
+            self.numLabel.hidden = NO;
+            self.numLabel.text = currentSelected[@"shopCount"];
+        } else {
+            self.cutBtn.hidden = YES;
+            self.addBtn.hidden = NO;
+            self.numLabel.hidden = YES;
+        }
+        
+    } else {
+        //有规格
+        NSMutableArray *arr = [NSMutableArray array];
+        for (NSDictionary *dict in shopCarArr) {
+            if (![dict[@"shopSpec"] isEqualToString:@""] && [dict[@"shopID"] isEqualToString:self.shopModel.shopGoodsID]) {
+                [arr addObject:dict];
+            }
+        }
+        NSInteger count = 0;
+        for (int i = 0; i < arr.count; i++) {
+            count += [arr[i][@"shopCount"] integerValue];
+        }
+        if (count > 0) {
+            self.countLb.text = [NSString stringWithFormat:@"%ld", (long)count];
+            self.countLb.hidden = NO;
+        } else {
+            self.countLb.hidden = YES;
+        }
+    }
+}
+
+//添加
+- (void)addAction:(UIButton *)sender {
+    NSMutableArray *shopCarArr = [self.dataBase bianliFMDB:self.shopModel.shopStoreID];
+    NSLog(@"%@",shopCarArr);
+    _shopCount = [_numLabel.text integerValue];
+    _shopCount++;
+    _numLabel.text = [NSString stringWithFormat:@"%ld", (long)_shopCount];
+    
+    self.cutBtn.hidden = NO;
+    self.addBtn.hidden = NO;
+    self.numLabel.hidden = NO;
+    
+    [_dataBase upDateFMDB:self.shopModel.shopStoreID andShopid:self.shopModel.shopGoodsID andcount:_numLabel.text andSpec:@"" andModel:self.shopModel andSpecPrice:@""];
+    
+    if (_addOrCutReloadData) {
+        _addOrCutReloadData();
+    }
+}
+
+//减少
+- (void)cutAction:(UIButton *)sender {
+    _shopCount = [_numLabel.text integerValue];
+    _shopCount--;
+    _numLabel.text = [NSString stringWithFormat:@"%ld", (long)_shopCount];
+    if (_shopCount == 0) {
+        self.cutBtn.hidden = YES;
+        self.addBtn.hidden = NO;
+        self.numLabel.hidden = YES;
+    } else {
+        self.cutBtn.hidden = NO;
+        self.addBtn.hidden = NO;
+        self.numLabel.hidden = NO;
+    }
+    [_dataBase upDateFMDB:self.shopModel.shopStoreID andShopid:self.shopModel.shopGoodsID andcount:_numLabel.text andSpec:@"" andModel:self.shopModel andSpecPrice:@""];
+    
+    if (_cutOrCutReloadData) {
+        _cutOrCutReloadData();
+    }
+}
+
+
+
+- (void)chooseSort:(UIButton *)sender {
+    //选择规格的弹窗
+    TCSpecifView *specView = [[TCSpecifView alloc] initWithFrame:self.frame andArr:self.shopModel];
+    __weak typeof(self) weakself = self;
+    specView.reloadData = ^{
+        if (weakself.reloadData) {
+            weakself.reloadData();
+        }
+    };
+    [self addSubview:specView];
+}
+
+- (void)setShopModel:(TCShopModel *)shopModel {
+    _shopModel = shopModel;
+    [self.imageV sd_setImageWithURL:[NSURL URLWithString:shopModel.shopSrcThumbs] placeholderImage:[UIImage imageNamed:@"商品详情页占位"]];
+    self.nameLabel.text = shopModel.shopName;
+    self.monthSellLabel.text = [NSString stringWithFormat:@"月售%@单", shopModel.shopOrderMonthCount];
+    self.priceLabel.text = [NSString stringWithFormat:@"￥%@",shopModel.shopPrice];
+    
+    //判断有无规格
+    NSString *hasSpec = @"0";
+    if ([hasSpec isEqualToString:@"0"]) {
+        //无
+        self.selectSort.hidden = YES;
+        self.addBtn.hidden = NO;
+        self.countLb.hidden = YES;
+    } else {
+        //有
+        self.selectSort.hidden = NO;
+        self.addBtn.hidden = YES;
+        self.countLb.hidden = NO;
+    }
+    
+    //配置数据库信息
+    [self resetShopCarInfo];
+}
+
+- (void)awakeFromNib {
+    [super awakeFromNib];
+    // Initialization code
+}
+
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+@end

@@ -1,0 +1,28 @@
+//
+//  TCShopsSearchTableViewCell.h
+//  顺道嘉(新)
+//
+//  Created by 某某 on 16/9/30.
+//  Copyright © 2016年 Macx. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+
+#import "TCShopSearchModel.h"
+#import "TCShopModel.h"
+
+@interface TCShopsSearchTableViewCell : UITableViewCell
+
+@property (nonatomic, copy) void(^reloadData)(void);
+@property (nonatomic, copy) void(^addOrCutReloadData)(void);
+@property (nonatomic, strong) UIImageView *imageV;
+@property (nonatomic, strong) UILabel *nameLabel;
+@property (nonatomic, strong) UILabel *monthSellLabel; //月售
+@property (nonatomic, strong) UILabel *priceLabel;
+@property (nonatomic, strong) UIButton *addBtn; //添加按钮
+@property (nonatomic, strong) UILabel *numLabel; //数量
+@property (nonatomic, strong) UIButton *cutBtn; //减号按钮
+@property (nonatomic, strong) UIButton *selectSort; //选规格
+@property (nonatomic, strong) TCShopModel *shopModel;
+
+@end

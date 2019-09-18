@@ -1,0 +1,19 @@
+//
+//  TCLoginViewController.h
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/11/20.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+#import <TencentOpenAPI/TencentOAuth.h>
+
+@interface TCLoginViewController : UIViewController
+
+@property (nonatomic,assign) BOOL isMyPage;
+@property (nonatomic, strong) TencentOAuth *tencentOauth;
+@property (nonatomic, strong) NSString *enterS;
+
+@property (nonatomic, assign) BOOL isFirst;
+@end

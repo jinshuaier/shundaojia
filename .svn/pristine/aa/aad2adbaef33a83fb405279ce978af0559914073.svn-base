@@ -1,0 +1,35 @@
+//
+//  AppDelegate+DismissKeyboard.m
+//  使用masonry布局
+//
+//  Created by 吕松松 on 2017/11/21.
+//  Copyright © 2017年 吕松松. All rights reserved.
+//
+
+#import "AppDelegate+DismissKeyboard.h"
+@interface AppDelegate (DismissKeyboard)
+/**
+ *开启点击空白处隐藏功能
+ **/
+-(void)openTouchOutsideDismissKeyboard;
+@end
+@implementation AppDelegate (DismissKeyboard)
+
+//开启点击空白处隐藏键盘功能
+-(void)openTouchOutsideDismissKeyboard{
+    [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(addGesture) name:UIKeyboardDidShowNotification object:nil];
+    
+}
+-(void)addGesture{
+    [self.window addGestureRecognizer:[[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(disappearKeyboard)]];
+    
+}
+-(void)disappearKeyboard{
+    [self.window endEditing:YES];
+    [self.window removeGestureRecognizer:self.window.gestureRecognizers.lastObject];
+}
+-(void)dealloc{
+    [[NSNotificationCenter defaultCenter]removeObserver:self];
+}
+
+@end

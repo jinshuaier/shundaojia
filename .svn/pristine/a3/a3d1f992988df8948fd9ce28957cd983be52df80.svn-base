@@ -1,0 +1,68 @@
+//
+//  TCGoodsInfo.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/12/23.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "TCGoodsInfo.h"
+
+@implementation TCGoodsInfo
++ (id)orderInfoWithDictionary:(NSDictionary *)dictInfo andType:(NSString *)type{
+    
+    return [[self alloc] initWithOrderInfoDictionary:dictInfo andType:type];
+}
+
+- (id)initWithOrderInfoDictionary:(NSDictionary *)dictInfo andType:(NSString *)type {
+    
+    if (self = [super init]) {
+        
+        //从详情进来的
+        if ([type isEqualToString:@"2"]){
+            
+            self.imageStr = dictInfo[@"src"];
+            self.nameStr = dictInfo[@"name"];
+        
+            //判断有无规格
+            if ([dictInfo[@"spec"] isEqualToString:@""]) {
+                self.priceStr = dictInfo[@"price"];
+            } else {
+                self.priceStr = dictInfo[@"new_price"];
+            }
+            self.numStr = [NSString stringWithFormat:@"%@",dictInfo[@"amount"]];
+            self.guigeStr = dictInfo[@"spec"];
+            
+        } else if ([type isEqualToString:@"1"]){ //提交订单
+            
+            self.imageStr = dictInfo[@"shopPic"];
+            self.nameStr = dictInfo[@"shopName"];
+            
+            //判断有无规格
+            if ([dictInfo[@"shopSpec"] isEqualToString:@""]) {
+                self.priceStr = dictInfo[@"shopPrice"];
+            } else {
+                self.priceStr = dictInfo[@"shopSpecPrice"];
+            }
+            self.numStr = [NSString stringWithFormat:@"%@",dictInfo[@"shopCount"]];
+            self.guigeStr = dictInfo[@"shopSpec"];
+            
+        } else if ([type isEqualToString:@"3"]){  //再来一单
+            
+            self.imageStr = dictInfo[@"src"];
+            self.nameStr = dictInfo[@"name"];
+            
+            //判断有无规格
+            if ([dictInfo[@"spec"] isEqualToString:@""]) {
+                self.priceStr = dictInfo[@"price"];
+            } else {
+                self.priceStr = dictInfo[@"new_price"];
+            }
+            self.numStr = [NSString stringWithFormat:@"%@",dictInfo[@"amount"]];
+            self.guigeStr = dictInfo[@"spec"];
+        }
+    }
+    return self;
+}
+
+@end

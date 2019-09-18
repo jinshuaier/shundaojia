@@ -1,0 +1,159 @@
+//
+//  TCSDJ.pch
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/10/9.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#ifndef TCSDJ_pch
+#define TCSDJ_pch
+
+//引用头文件
+#import "TCSDJ.h"
+#import "UsersManage.h"
+
+//极光推送
+#define APIKEY @"9d2d1805dee085ded27af8bf"
+#define SECRETKEY @"63cdbafb8ebc674065823dfd"
+#define registrationIDs @"101d85590947971dc0d"
+
+//ShareSDK
+#define ShareKey @"174e736c306c0"
+#define ShareWeiBoKey @"75534244"
+#define ShareWeiBoSecret @"ecb92b358747907bf164902772f138e8"
+#define ShareWeChatAppId @"wx8c70757bbda03189"
+#define ShareWeChatSecret @"afbc005971e1431c3fef711214b52fd0"
+#define ShareQQAppId @"1105640733"
+#define ShareQQKey @"C2VH30pTPENKWQqj"
+
+//友盟的APPKEY
+#define UMengKey @"58f827b275ca35728e001fa2"
+
+//高德
+#define AMapKey @"4cf7402841d89fc54b5b21ffd9dde63b"
+
+#define kFixedScreenWidth    ( [[UIScreen mainScreen] respondsToSelector:@selector(fixedCoordinateSpace)] ? [UIScreen mainScreen].fixedCoordinateSpace.bounds.size.width : [UIScreen mainScreen].bounds.size.width )
+
+#define kScaledValue(x)        (ceilf((x) * ((kFixedScreenWidth / 375.0))))
+//发送通知
+#define KPostNotification(name,obj) [[NSNotificationCenter defaultCenter] postNotificationName:name object:obj];
+//屏幕实际的宽高度
+#define WIDTH  [[UIScreen mainScreen] bounds].size.width //宽度
+#define HEIGHT  [[UIScreen mainScreen] bounds].size.height //高度
+
+//比例
+#define WIDHTSCALE  [UIScreen mainScreen].bounds.size.width/375.0
+#define HEIGHTSCALE  [UIScreen mainScreen].bounds.size.height/667.0
+//APP所用到的颜色
+
+#define TCMAINCOLOR [UIColor colorWithRed:247/255.0 green:111/255.0 blue:0/255.0 alpha:1.0]  //主颜色
+
+//Color
+#define TCUIColorFromRGB(rgbValue) [UIColor colorWithRed:((float)((rgbValue & 0xFF0000) >> 16))/255.0 green:((float)((rgbValue &0xFF00) >>8))/255.0 blue:((float)(rgbValue &0xFF))/255.0 alpha:1.0]
+//背景主颜色
+#define TCBgColor TCUIColorFromRGB(0xF5F5F5)
+
+#define RGB(r, g, b)    [UIColor colorWithRed:((r) / 255.0) green:((g) / 255.0) blue:((b) / 255.0) alpha:1.0]
+#define mainColor TCUIColorFromRGB(0xFF884C)
+
+//lineView
+#define TCLineColor TCUIColorFromRGB(0xEDEDED)
+
+#define IS_iOS8 ([[UIDevice currentDevice].systemVersion floatValue] >= 8.0)
+
+#define RGB(r, g, b)    [UIColor colorWithRed:((r) / 255.0) green:((g) / 255.0) blue:((b) / 255.0) alpha:1.0]
+
+
+// 机器型号判断device version
+#define iPhone4 ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? CGSizeEqualToSize(CGSizeMake(640, 960), [[UIScreen mainScreen] currentMode].size) : NO)
+#define iPhone5 ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? CGSizeEqualToSize(CGSizeMake(640, 1136), [[UIScreen mainScreen] currentMode].size) : NO)
+#define iPhone6 ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? CGSizeEqualToSize(CGSizeMake(750, 1334), [[UIScreen mainScreen] currentMode].size) : NO)
+#define iPhone6plus ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? (CGSizeEqualToSize(CGSizeMake(1125, 2001), [[UIScreen mainScreen] currentMode].size) || CGSizeEqualToSize(CGSizeMake(1242, 2208), [[UIScreen mainScreen] currentMode].size)) : NO)
+#define iPhoneX ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? CGSizeEqualToSize(CGSizeMake(1125, 2436),[[UIScreen mainScreen] currentMode].size)  : NO)
+#define IPAD ([[UIDevice currentDevice] respondsToSelector:@selector(userInterfaceIdiom)] && [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad)
+
+// Status bar height.
+#define  StatusBarHeight      (iPhoneX ? 44.f : 20.f)
+
+
+// Navigation bar height.
+#define  NavigationBarHeight  44.f
+
+// Tabbar height.
+#define  TabbarHeight         (iPhoneX ? (49.f+34.f) : 49.f)
+
+// Tabbar safe bottom margin.
+#define  TabbarSafeBottomMargin         (iPhoneX ? 34.f : 0.f)
+
+// Status bar & navigation bar height.
+#define  StatusBarAndNavigationBarHeight  (iPhoneX ? 88.f : 64.f)
+
+#define ViewSafeAreInsets(view) ({UIEdgeInsets insets; if(@available(iOS 11.0, *)) {insets = view.safeAreaInsets;} else {insets = UIEdgeInsetsZero;} insets;})
+
+#define AdjustsScrollViewInsetNever(controller,view) if(@available(iOS 11.0, *)) {view.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;} else if([controller isKindOfClass:[UIViewController class]]) {controller.automaticallyAdjustsScrollViewInsets = false;}
+
+
+#define KScreenWidth   [UIScreen mainScreen].bounds.size.width
+#define KScreenHeight  [UIScreen mainScreen].bounds.size.height
+
+#define KHistorySearchPath [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:@"PYSearchhistories.plist"]
+
+#define SGSearchPath [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:@"ShopGoodsSearchhistories.plist"]
+//数据库路径
+
+#define SqlPath [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)lastObject] stringByAppendingPathComponent:@"newShopCar.sqlite"]
+//团购的数据库的路径
+#define groupSqlPath [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)lastObject] stringByAppendingPathComponent:@"groupGoods.sqlite"]
+
+#define KColor(r,g,b) [UIColor colorWithRed:(r/255.0) green:(g/255.0) blue:(b/255.0) alpha:1.0]
+
+#define PFR [[[UIDevice currentDevice] systemVersion] floatValue] >= 9.0 ? @"PingFangSC-Regular" : @"PingFang SC"
+
+#define PFR20Font [UIFont fontWithName:PFR size:20];
+#define PFR18Font [UIFont fontWithName:PFR size:18];
+#define PFR16Font [UIFont fontWithName:PFR size:16];
+#define PFR15Font [UIFont fontWithName:PFR size:15];
+#define PFR14Font [UIFont fontWithName:PFR size:14];
+#define PFR13Font [UIFont fontWithName:PFR size:13];
+#define PFR12Font [UIFont fontWithName:PFR size:12];
+#define PFR11Font [UIFont fontWithName:PFR size:11];
+#define PFR10Font [UIFont fontWithName:PFR size:10];
+#define PFR9Font [UIFont fontWithName:PFR size:9];
+#define PFR8Font [UIFont fontWithName:PFR size:8];
+
+/******************    TabBar          *************/
+#define MallClassKey   @"rootVCClassString"
+#define MallTitleKey   @"title"
+#define MallImgKey     @"imageName"
+#define MallSelImgKey  @"selectedImageName"
+
+#define WEAKSELF __weak typeof(self) weakSelf = self;
+
+//上线NSLog移除
+#ifndef __OPTIMIZE__
+#define NSLog(...) NSLog(__VA_ARGS__)
+#else
+#define NSLog(...) {}
+#endif
+//此处是防止导入AFNetWorking时报错
+
+#ifndef TARGET_OS_IOS
+
+#define TARGET_OS_IOS TARGET_OS_IPHONE
+
+#endif
+
+#ifndef TARGET_OS_WATCH
+
+#define TARGET_OS_WATCH 0
+
+// Include any system framework and library headers here that should be included in all compilation units.
+// You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
+
+#endif /* TCSDJ_pch */
+
+// Include any system framework and library headers here that should be included in all compilation units.
+// You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
+
+#endif /* TCSDJ_pch */

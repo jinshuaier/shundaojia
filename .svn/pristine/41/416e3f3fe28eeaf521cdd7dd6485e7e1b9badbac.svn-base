@@ -1,0 +1,138 @@
+//
+//  TCTabBarViewController.m
+//  顺道嘉商家版
+//
+//  Created by Macx on 16/7/27.
+//  Copyright © 2016年 北京同创共享网络科技有限公司. All rights reserved.
+//
+
+#import "TCTabBarViewController.h"
+#import "TCMainViewController.h"
+#import "TCOrderViewController.h"
+#import "TCGroupViewController.h"
+#import "TCMyMessageViewController.h"
+#import "TCTabbarView.h"
+#import "AFNetworkReachabilityManager.h"
+
+@interface TCTabBarViewController ()<UITabBarControllerDelegate>
+@property (nonatomic, strong) NSUserDefaults *userdefault;
+@end
+
+@implementation TCTabBarViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.delegate = self;
+    _userdefault = [NSUserDefaults standardUserDefaults];
+    AFNetworkReachabilityManager *manager = [AFNetworkReachabilityManager sharedManager];
+    
+    [manager setReachabilityStatusChangeBlock:^(AFNetworkReachabilityStatus status) {
+        switch (status) {
+            case AFNetworkReachabilityStatusUnknown:
+                //未知网络
+                break;
+            case AFNetworkReachabilityStatusNotReachable:
+                //没有网络
+                [TCProgressHUD showMessage:@"检查网络"];
+                break;
+            case AFNetworkReachabilityStatusReachableViaWiFi:
+                //wifi
+//                [SVProgressHUD showInfoWithStatus:@"wifi"];
+                break;
+            case AFNetworkReachabilityStatusReachableViaWWAN:
+                //3G,4G
+//                [SVProgressHUD showInfoWithStatus:@"移动网络"];
+            default:
+                break;
+        }
+    }];
+    [manager startMonitoring];
+
+    // 添加子控制器
+    [self addOneChildVcClass:[TCMainViewController class] title:@"首页" image:@"首页icon" selectedImage:@"首页icon点击"];
+    [self addOneChildVcClass:[TCGroupViewController class] title:@"团购" image:@"团购图标" selectedImage:@"团购图标点击"];
+    [self addOneChildVcClass:[TCOrderViewController class] title:@"订单" image:@"订单icon" selectedImage:@"订单icon点击"];
+    [self addOneChildVcClass:[TCMyMessageViewController class] title:@"我的" image:@"我的" selectedImage:@"我的点击"];
+
+    [self setValue:[[TCTabbarView alloc] init] forKeyPath:@"tabBar"];
+    
+}
+
+/**
+ * 添加一个子控制器
+ * @param vc : 子控制器
+ * @param title : 标题
+ * @param image : 图片
+ * @param selectedImage : 选中的图片
+ */
+- (void)addOneChildVc:(UIViewController *)vc title:(NSString *)title image:(NSString *)image selectedImage:(NSString *)selectedImage{
+    //设置导航栏返回按钮
+    [[UIBarButtonItem appearance] setBackButtonTitlePositionAdjustment:UIOffsetMake(0, -60)
+                                                         forBarMetrics:UIBarMetricsDefault];
+    //设置导航控件颜色
+    [[UINavigationBar appearance] setTintColor:RGB(77, 77, 77)];
+    [[UINavigationBar appearance] setBarTintColor:[UIColor whiteColor]];
+    
+    //设置导航栏字体为白色
+    [[UINavigationBar appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName:RGB(77, 77, 77), NSFontAttributeName : [UIFont boldSystemFontOfSize:18]}];
+    [vc.tabBarItem setTitleTextAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:12]} forState:UIControlStateNormal];
+    [vc.tabBarItem setTitleTextAttributes:@{NSForegroundColorAttributeName: [UIColor colorWithRed:247/255.0 green:111/255.0 blue:0/255.0 alpha:1.0], NSFontAttributeName:[UIFont systemFontOfSize:12]} forState:UIControlStateSelected];
+    // 同时设置tabbar每个标签的文字 和 navigationBar的文字
+    vc.tabBarItem.title = title;
+    vc.tabBarItem.image = [UIImage imageNamed:image];
+    vc.tabBarItem.selectedImage = [[UIImage imageNamed:selectedImage]imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    vc.tabBarItem.imageInsets = UIEdgeInsetsMake(-2, 0, 2, 0);
+    // 包装一个导航控制器后,再成为tabbar的子控制器
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    [self addChildViewController:nav];
+}
+
+#pragma mark - <UITabBarControllerDelegate>
+- (void)tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController{
+    //点击tabBarItem动画
+    [self tabBarButtonClick:[self getTabBarButton]];
+    
+}
+- (UIControl *)getTabBarButton{
+    NSMutableArray *tabBarButtons = [[NSMutableArray alloc]initWithCapacity:0];
+    
+    for (UIView *tabBarButton in self.tabBar.subviews) {
+        if ([tabBarButton isKindOfClass:NSClassFromString(@"UITabBarButton")]){
+            [tabBarButtons addObject:tabBarButton];
+        }
+    }
+    UIControl *tabBarButton = [tabBarButtons objectAtIndex:self.selectedIndex];
+    NSLog(@"%ld",self.selectedIndex);
+    
+    return tabBarButton;
+}
+#pragma mark - 点击动画
+- (void)tabBarButtonClick:(UIControl *)tabBarButton
+{
+    for (UIView *imageView in tabBarButton.subviews) {
+        if ([imageView isKindOfClass:NSClassFromString(@"UITabBarSwappableImageView")]) {
+            //需要实现的帧动画,这里根据自己需求改动
+            CAKeyframeAnimation *animation = [CAKeyframeAnimation animation];
+            animation.keyPath = @"transform.scale";
+            animation.values = @[@1.0,@1.3,@0.9,@1.0];
+            animation.duration = 0.3;
+            animation.calculationMode = kCAAnimationCubic;
+            //添加动画
+            [imageView.layer addAnimation:animation forKey:nil];
+        }
+    }
+}
+
+/**
+ * 添加一个子控制器
+ * @param vcClass : 子控制器的类名
+ * @param title : 标题
+ * @param image : 图片
+ * @param selectedImage : 选中的图片
+ */
+- (void)addOneChildVcClass:(Class)vcClass title:(NSString *)title image:(NSString *)image selectedImage:(NSString *)selectedImage
+{
+    UIViewController *vc = [[vcClass alloc] init];
+    [self addOneChildVc:vc title:title image:image selectedImage:selectedImage];
+}
+@end

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>destination</key>
+	<string>export</string>
+	<key>method</key>
+	<string>app-store</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.tcgxsdj.cn</key>
+		<string>diss</string>
+	</dict>
+	<key>signingCertificate</key>
+	<string>EF034467439A560D38E8C64029FD8E72837CE7F9</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>teamID</key>
+	<string>69RSQQWP5Y</string>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

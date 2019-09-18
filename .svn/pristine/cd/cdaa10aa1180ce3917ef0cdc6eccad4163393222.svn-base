@@ -1,0 +1,97 @@
+//
+//  TCFirstStartViewController.m
+//  顺道嘉(新)
+//
+//  Created by 某某 on 16/9/24.
+//  Copyright © 2016年 Macx. All rights reserved.
+//
+
+#import "TCFirstStartViewController.h"
+#import "TCTabBarController.h"
+#import "TCLoginViewController.h"
+
+@interface TCFirstStartViewController ()<UIScrollViewDelegate>
+@property (nonatomic, strong) NSArray *imageArray;
+@property (nonatomic, strong) UIScrollView *sview;
+@property (nonatomic, strong) UIPageControl *pagecontrol;
+@property (nonatomic, strong) NSUserDefaults *userDefaults;
+@end
+
+@implementation TCFirstStartViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    NSLog(@"进去first页面");
+    _imageArray = @[@"快速上门", @"轻松创收", @"安全无忧"];
+    self.userDefaults = [NSUserDefaults standardUserDefaults];
+    [self createImage];
+}
+
+//创建启动图
+- (void)createImage{
+    _sview = [[UIScrollView alloc]initWithFrame:CGRectMake(0, 0, WIDTH, HEIGHT)];
+    _sview.contentSize = CGSizeMake(WIDTH * 3, HEIGHT);
+    _sview.pagingEnabled = YES;
+    _sview.bounces = NO;
+    _sview.showsHorizontalScrollIndicator = NO;
+    _sview.showsVerticalScrollIndicator = NO;
+    _sview.delegate = self;
+    [self.view addSubview:_sview];
+    //创建image
+    for (int i = 0; i < self.imageArray.count; i++) {
+        UIImageView *imageview = [[UIImageView alloc]initWithFrame:CGRectMake(i * WIDTH, 0, WIDTH, HEIGHT)];
+        imageview.image = [UIImage imageNamed:self.imageArray[i]];
+        imageview.userInteractionEnabled = YES;
+        [_sview addSubview:imageview];
+        if (i == 2) {
+            UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap)];
+            [imageview addGestureRecognizer:tap];
+        }
+    }
+//    //创建pagecontrol
+//    self.pagecontrol = [[UIPageControl alloc]initWithFrame:CGRectMake(self.view.center.x - (WIDHT / 3 / 2), HEIGHT - 85, WIDHT / 3, 30)];
+//    self.pagecontrol.numberOfPages = _imageArray.count;
+//    _pagecontrol.currentPage = 0;
+//    [_pagecontrol setPageIndicatorTintColor:[UIColor grayColor]];
+//    [_pagecontrol setCurrentPageIndicatorTintColor:[UIColor colorWithRed: 228 /255.0 green: 149 / 255.0 blue: 36 / 255.0 alpha:0.8]];
+//    _pagecontrol.selected = NO;
+//    [self.view addSubview:_pagecontrol];
+}
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView{
+    if (scrollView == _sview) {
+        //根据偏移量  改TCTabBarController    NSInteTCTabBarControllerontentOffset.x/scrollView.bounds.size.width;
+//        _pagecontrol.currentPage = index;
+    }
+}
+
+- (void)tap{
+    if ([self.userDefaults valueForKey:@"userID"] == nil){
+        TCLoginViewController *loginVC = [[TCLoginViewController alloc] init];
+        loginVC.isFirst = YES;
+        [self presentViewController:loginVC animated:YES completion:nil];
+    } else {
+        TCTabBarController *tab = [[TCTabBarController alloc]init];
+        [self presentViewController:tab animated:YES completion:nil];
+    }
+
+    //市场统计
+//    [self quest];
+}
+#pragma mark -- 市场统计
+//-(void)quest{
+//    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+//    manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+//    manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+//    [manager POST:[TCServerSecret loginAndRegisterSecret2:@"110007"] parameters:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+//        //NSDictionary *dic = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
+//        //NSLog(@"市场统计%@",dic);
+//
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//        nil;
+//    }];
+
+//}
+
+
+
+@end

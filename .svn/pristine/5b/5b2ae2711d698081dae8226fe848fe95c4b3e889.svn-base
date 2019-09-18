@@ -1,0 +1,73 @@
+//
+//  TCAllclassViewController.m
+//  ShunDaoJia
+//
+//  Created by 吕松松 on 2017/12/29.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "TCAllclassViewController.h"
+#import "TCShopViewController.h"
+
+@interface TCAllclassViewController ()
+@property (nonatomic, strong) NSArray *dataArr;
+
+@end
+
+@implementation TCAllclassViewController
+
+- (void)viewDidLoad {
+    self.title = @"全部";
+    [super viewDidLoad];
+    self.view.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+    [self creatUI];
+    // Do any additional setup after loading the view.
+}
+
+-(void)creatUI{
+    CGFloat width = (WIDTH - 75 *4 - 24)/3;
+    for (int i = 0; i < self.cateArr.count; i++) {
+        
+        UIButton *btn = [UIButton buttonWithType:(UIButtonTypeCustom)];
+        btn.frame = CGRectMake(12 + i%4*(75 + width), StatusBarAndNavigationBarHeight + 16 + i/4*(16 + 30), 75, 30);
+        btn.layer.borderColor = TCUIColorFromRGB(0xDEDEDE).CGColor;
+        btn.tag = 1000 + i;
+        btn.layer.borderWidth = 0.5;
+        btn.layer.masksToBounds = YES;
+        btn.layer.cornerRadius = 15;
+        [btn setTitle:[NSString stringWithFormat:@"%@",self.cateArr[i][@"name"]] forState:(UIControlStateNormal)];
+        [btn setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+        [btn addTarget:self action:@selector(clickLabel:) forControlEvents:(UIControlEventTouchUpInside)];
+        [btn setBackgroundColor:TCUIColorFromRGB(0xFFFFFF)];
+        btn.titleLabel.font = [UIFont fontWithName:@"PingFangSC-Regular" size:13];
+        btn.titleLabel.textAlignment = NSTextAlignmentCenter;
+        [self.view addSubview:btn];
+    }
+}
+
+-(void)clickLabel:(UIButton *)sender{
+  //  NSLog(@"%@--%@",self.cateArr[sender.tag - 1000][@"name"],self.cateArr[sender.tag - 1000][@"id"]);
+    NSString *str = self.cateArr[sender.tag - 1000][@"id"];
+    TCShopViewController *shopVC = [[TCShopViewController alloc] init];
+    shopVC.isAllDian = YES;
+    shopVC.TitleStr = [NSString stringWithFormat:@"%@",self.cateArr[sender.tag - 1000][@"name"]];
+    shopVC.typeStr = str;
+    [self.navigationController pushViewController:shopVC animated:YES];
+
+}
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

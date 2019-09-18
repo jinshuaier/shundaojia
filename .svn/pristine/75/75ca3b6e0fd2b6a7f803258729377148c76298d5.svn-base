@@ -1,0 +1,1190 @@
+//
+//  TCMainViewController.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/10/10.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "TCMainViewController.h"
+#import "TCHomeMenuCell.h"  //服务按钮
+#import "TCLunboTableViewCell.h" //轮播图
+#import "TCLocationViewController.h" //定位地址
+#import "TCListCell.h" //详情列表
+#import "OrderInfoModel.h" //列表model
+
+#import "MMScanViewController.h"  //二维码
+#import "TCSearchController.h"
+
+#import "TCShopViewController.h"
+
+#import "UIMarqueeBarView.h"
+#import "TCShopMessageViewController.h" //店铺信息
+#import "TCAllclassViewController.h" //全部
+#import "TCQRCodelViewController.h" //跳转二维码
+#import "TCLoginViewController.h"
+#import "TCGroupViewController.h"
+#import "TCHtmlViewController.h"
+
+#import "TCRefundViewController.h"
+
+
+
+@interface TCMainViewController () <UITableViewDelegate,UITableViewDataSource,UIScrollViewDelegate,TCListCellDelegate,BaseViewButtonDelegete,SDCycleScrollViewDelegate,selectViewDelegate,UIGestureRecognizerDelegate>
+{
+    NSInteger selectIndex;//当前选择index
+    BOOL isShow;//YES已展开，NO已收起
+    UIView *backView;
+    NSArray *_imagesURLStrings;
+    UIButton *lastButton;
+    SDCycleScrollView *_customCellScrollViewDemo;
+    BOOL isPaoMaDeng;
+    UIView *custom_navView;
+    UIImageView *imageLocate;
+    
+}
+
+@property (nonatomic, strong) UITableView *mainTableView; //创建的tableView
+@property (nonatomic, strong) UITableView *downTableView; //创建下拉列表
+@property (nonatomic, strong) UIView *view_bar; //自定义的nav
+@property (nonatomic, strong) ZYYWheelView *lunboView; //轮播的view
+@property (nonatomic, strong) UIButton *leftButton; //此处定位传值
+@property (nonatomic, strong) NSMutableArray *menuArray; //功能数量
+@property (nonatomic, strong) UIView *navImageView; //虚拟导航
+@property (nonatomic, strong) UIView *navView;
+@property (nonatomic, strong) UIView *lineView; //线
+@property (nonatomic, strong) NSMutableArray *dataMuArr;
+
+@property (strong,nonatomic) SDCycleScrollView *topPhotoBoworr;
+@property (nonatomic, strong) NSArray *btnTitleArray;//存放首页数据的数组
+@property (nonatomic, assign) BOOL isSelect;
+
+@property (nonatomic, strong) UITableView *sortTable; //综合排序的tableView
+@property (nonatomic, strong) NSArray *sortArray; //综合排序的数组
+@property (nonatomic, strong) BSDropDownView   *departSelectView;
+@property (nonatomic, weak)  UILabel *showResuleLabel;
+@property (nonatomic, strong) NSMutableArray *imageAdsArr;
+@property (nonatomic, strong) NSUserDefaults *userDefaults;
+@property (nonatomic , copy)NSString *dropDownTitle;
+@property (nonatomic, strong) UILabel *locationLabel; //定位
+@property (nonatomic, strong) UIImageView *subscriptImage; //
+@property (nonatomic, strong) UIImageView *imageLoction; //
+@property (nonatomic, strong) NSMutableArray *cateArr;//全部分类数组
+@property (nonatomic, strong) NSDictionary *latDic; //传值搜索页面的经纬度
+@property (nonatomic, strong) NSString *btntitle;//选择筛选的类型按钮title
+@property (nonatomic, strong) NSString *longtitude;
+@property (nonatomic, strong) NSString *latitude;
+@property (nonatomic, strong) NSString *seleStr;
+@property (nonatomic, strong) UIButton *firBtn;
+@property (nonatomic, strong) NSString *shopidstr;
+@end
+
+@implementation TCMainViewController
+
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [self.navigationController setNavigationBarHidden:NO animated:YES];
+    [self.navigationController.navigationBar addSubview:custom_navView];
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [custom_navView removeFromSuperview];
+}
+
+-(BSDropDownView *)departSelectView
+{
+    if (!_departSelectView) {
+        //        这里是设置的初始化位置，可以把那个Y值设置在你点击button的下边
+        _departSelectView = [[BSDropDownView alloc]initWithFrame:CGRectMake(0, 100, self.view.frame.size.width, self.view.frame.size.height)];
+        //        这里是个枚举，从下往上出还是从上往下出这里设置枚举就行
+        _departSelectView.type = showTableStyleTypeFromUpToBottom;
+        _departSelectView.delegate = self;
+    }
+    return _departSelectView;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = TCBgColor;
+    self.cateArr = [NSMutableArray array];
+    self.imageAdsArr = [NSMutableArray array];
+    self.dataMuArr = [NSMutableArray array];
+    self.btntitle = @"全部类型";
+    self.seleStr = @"1";
+   
+    //定位当前位置
+    self.userDefaults = [NSUserDefaults standardUserDefaults];
+    [ProgressHUD showHUDToView:self.view];
+    //开启定位
+    TCLocation *lo = [[TCLocation alloc]init];
+    [lo getadds:^(NSString *address) {
+        self.locationLabel.text = [self.userDefaults valueForKey:@"currentNei"];
+    } andMayBeError:^{
+        
+    }];
+    
+    ////    创建UI
+    //    [self createUI];
+    //定位成功后的通知
+    [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(reloadView) name:@"stop" object:nil];
+    
+    //添加view
+    custom_navView = [[UIView alloc] init];
+    custom_navView.backgroundColor = [UIColor whiteColor];
+    if (iPhoneX) {
+        custom_navView.frame = CGRectMake(0, -30 * HEIGTHXSCALE, WIDTH, 88);
+    }else{
+        custom_navView.frame = CGRectMake(0, -20, WIDTH, 64);
+    }
+    
+//    [self.navigationController.navigationBar addSubview:custom_navView];
+    //添加搜索按钮
+    UIButton *searchBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    [searchBtn setImage:[UIImage imageNamed:@"搜索图标"] forState:(UIControlStateNormal)];
+    searchBtn.frame = CGRectMake(WIDTH - 15 * WIDHTSCALE - 19 * WIDHTSCALE, StatusBarHeight + 14 * HEIGHTSCALE, 19 * WIDHTSCALE, 19 * HEIGHTSCALE);
+    [searchBtn addTarget:self action:@selector(searchBtn:) forControlEvents:(UIControlEventTouchUpInside)];
+    [custom_navView addSubview:searchBtn];
+    //定位的图标
+    imageLocate = [[UIImageView alloc] init];
+    imageLocate.image = [UIImage imageNamed:@"首页定位图标icon"];
+    imageLocate.frame = CGRectMake(16 * WIDHTSCALE, StatusBarHeight + 13 * HEIGHTSCALE, 14 * WIDHTSCALE, 17 * HEIGHTSCALE);
+    [custom_navView addSubview:imageLocate];
+    
+    
+    self.navView =[[UIView alloc] init];
+    self.navView.frame=CGRectMake(0, StatusBarHeight + 7 * HEIGHTSCALE, 155 * WIDHTSCALE, StatusBarHeight + 17.5 * HEIGHTSCALE);
+    self.navView.userInteractionEnabled = YES;
+    
+    self.navigationController.navigationBar.subviews[0].subviews[0].hidden = YES;
+    UITapGestureRecognizer *tapLocition = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapLocationView)];
+    [self.navView addGestureRecognizer:tapLocition];
+    [custom_navView addSubview:self.navView];
+    
+    //地址
+    self.locationLabel = [UILabel publicLab:@"" textColor:TCUIColorFromRGB(0x333333) textAlignment:NSTextAlignmentCenter fontWithName:@"PingFangSC-Regular" size:13 numberOfLines:0];
+    CGSize size = [self.locationLabel sizeThatFits:CGSizeMake(WIDTH, 30 * HEIGHTSCALE)];
+    self.locationLabel.frame = CGRectMake(CGRectGetMaxX(imageLocate.frame) + 6 * WIDHTSCALE, 0, size.width, 30 * HEIGHTSCALE);
+    [self.navView addSubview:self.locationLabel];
+    //下标
+    self.subscriptImage = [[UIImageView alloc] init];
+    self.subscriptImage.frame = CGRectMake(CGRectGetMaxX(self.locationLabel.frame) +4 * WIDHTSCALE , (30 - 4)/2 * HEIGHTSCALE, 7 * WIDHTSCALE, 4 * HEIGHTSCALE);
+    self.subscriptImage.image = [UIImage imageNamed:@"进入定位小三角"];
+    [self.navView addSubview:self.subscriptImage];
+    
+//    self.navigationItem.titleView = self.navView;
+    
+    // Do any additional setup after loading the view.
+}
+
+//定位成功后的通知
+- (void)reloadView{
+    //如果是第一次打开  定位后没有创建tableview 所以在此要创建在刷新
+    if (![self.userDefaults boolForKey:@"firstS"]) {
+        //是第一次启动
+        [self.userDefaults setBool:YES forKey:@"firstS"];
+    }
+    NSLog(@"当前位置信息 %@", [self.userDefaults valueForKey:@"currentNei"]);
+    self.longtitude = [self.userDefaults valueForKey:@"longitude"];
+    self.latitude = [self.userDefaults valueForKey:@"latitude"];
+    [ProgressHUD hiddenHUD:self.view];
+
+    //    创建UI
+    [self createUI];
+    
+    self.locationLabel.text = [self.userDefaults valueForKey:@"currentNei"];
+    CGSize size = [self.locationLabel sizeThatFits:CGSizeMake(WIDTH, 30 * HEIGHTSCALE)];
+    if (size.width > 200 * WIDHTSCALE){
+        self.locationLabel.frame = CGRectMake(CGRectGetMaxX(imageLocate.frame) + 6 * WIDHTSCALE, 0, 155 * WIDHTSCALE, 30 * HEIGHTSCALE);
+    } else {
+        self.locationLabel.frame = CGRectMake(CGRectGetMaxX(imageLocate.frame) + 6 * WIDHTSCALE, 0, size.width, 30 * HEIGHTSCALE);
+    }
+//    self.locationLabel.frame = CGRectMake(32, 0, size.width, 30);
+    self.subscriptImage.frame = CGRectMake(CGRectGetMaxX(self.locationLabel.frame) + 4 * WIDHTSCALE, (30 - 4)/2 * HEIGHTSCALE, 7 * WIDHTSCALE, 4 * HEIGHTSCALE);
+    self.imageLoction.frame = CGRectMake(self.locationLabel.frame.origin.x - 6 * WIDHTSCALE - 10 * WIDHTSCALE, (30 - 14)/2 * HEIGHTSCALE, 10 * WIDHTSCALE, 14 * HEIGHTSCALE);
+    if (size.width > 200){
+        self.navView.frame = CGRectMake(0, StatusBarHeight + 7 * HEIGHTSCALE, (200 + 16) * WIDHTSCALE, StatusBarHeight + 17.5 * HEIGHTSCALE);
+    } else {
+        self.navView.frame = CGRectMake(0, StatusBarHeight + 7 * HEIGHTSCALE, 32 * WIDHTSCALE + size.width + 30 * WIDHTSCALE + 16 * WIDHTSCALE, StatusBarHeight + 17.5 * HEIGHTSCALE);
+    }
+}
+
+//创建主View
+- (void)createUI {
+    //创建首页的TableView
+    self.mainTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, StatusBarAndNavigationBarHeight, self.view.qh_width, self.view.qh_height - TabbarHeight - StatusBarAndNavigationBarHeight) style:UITableViewStylePlain];
+    //解决ios11的导航栏布局的问
+    AdjustsScrollViewInsetNever (self,self.mainTableView);
+    self.mainTableView.delegate=self;//设置表视图外貌代理
+    self.mainTableView.dataSource=self;
+    //去掉分割线
+    self.mainTableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    [self.view addSubview:self.mainTableView];
+    //ios11解决点击刷新跳转的问题
+    self.mainTableView.estimatedRowHeight = 0;
+    self.mainTableView.estimatedSectionHeaderHeight = 0;
+    self.mainTableView.estimatedSectionFooterHeight = 0;
+    
+    //一进来先让它刷新获取经纬度 默认综合排序
+    [self setupRefresh:@"1" andcateType:@""];
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    if (tableView == self.mainTableView){
+        if (section == 0){
+            return 2;
+        } else if (section == 1){
+            return self.dataMuArr.count;
+        }
+    } else if (tableView == self.downTableView){
+        return self.cateArr.count;
+    }
+    
+    return 1;
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    if (tableView == self.mainTableView){
+        return 2;
+    } else if (tableView == self.downTableView){
+        return 1;
+    }
+    return 1;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (tableView == self.mainTableView){
+        if (indexPath.section == 0){
+            if (indexPath.row == 0){
+                return 190 * HEIGHTSCALE;
+            } else if (indexPath.row == 1){
+                return 98 + 12;
+            }
+        }
+        if (self.dataMuArr.count > 1) {
+            OrderInfoModel *model = self.dataMuArr[indexPath.row];
+            NSLog(@"%.1f",model.cellHight);
+            return model.cellHight;
+        }
+    } else if (tableView == self.downTableView){
+        return (13 + 20)*HEIGHTSCALE;
+    }
+    return (13 + 20)*HEIGHTSCALE;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    if (tableView == _mainTableView){
+        if (section == 0){
+            return 0.1;
+        } else {
+            return 80*HEIGHTSCALE;
+        }
+    } else if (tableView == self.downTableView){
+        return 0.1;
+    }
+    return 0.1;
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    
+    return 0.1;
+}
+
+//预防ios11错误
+-(UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    if (tableView == self.mainTableView){
+        if (section == 0) {
+            UIView *headerView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, self.view.qh_width, 1 * HEIGHTSCALE)];
+            return headerView;
+        } else if (section == 1){
+            UIView *headerView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, self.view.qh_width, 80 * HEIGHTSCALE)];
+            headerView.backgroundColor = [UIColor whiteColor];
+            //添加附近商家的字段
+            UILabel *nearbyLabel = [UILabel publicLab:@"附近商家" textColor:TCUIColorFromRGB(0x333333) textAlignment:NSTextAlignmentCenter fontWithName:@"PingFangSC-Regular" size:15*HEIGHTSCALE numberOfLines:0];
+            
+            if (iPhoneX) {
+                nearbyLabel.frame = CGRectMake((WIDTH - 65)/2 * WIDHTSCALE, 0, 65 * WIDHTSCALE, 40 * HEIGTHXSCALE);
+                nearbyLabel.font = [UIFont systemFontOfSize:15];
+            }else{
+            nearbyLabel.frame = CGRectMake((WIDTH - 63 * WIDHTSCALE)/2, 0, 63 * WIDHTSCALE, 40 * HEIGHTSCALE);
+            }
+            [headerView addSubview:nearbyLabel];
+            //两根线
+            UIView *near_lineOne = [[UIView alloc] init];
+            near_lineOne.frame = CGRectMake((nearbyLabel.frame.origin.x - 11 * WIDHTSCALE - 30 * WIDHTSCALE) , (40 - 0.5)/2 * HEIGHTSCALE , 30 * WIDHTSCALE, 0.5 * HEIGHTSCALE);
+            near_lineOne.backgroundColor = TCUIColorFromRGB(0x333333);
+            [headerView addSubview:near_lineOne];
+            
+            UIView *near_lineTwo = [[UIView alloc] init];
+            near_lineTwo.frame = CGRectMake(CGRectGetMaxX(nearbyLabel.frame) + 10 * WIDHTSCALE, (40 - 0.5)/2 * HEIGHTSCALE, 30 * WIDHTSCALE , 0.5 * HEIGHTSCALE );
+            near_lineTwo.backgroundColor = TCUIColorFromRGB(0x333333);
+            [headerView addSubview:near_lineTwo];
+            //线
+            UIView *near_lineThree = [[UIView alloc] init];
+            near_lineThree.frame = CGRectMake(0, 40 * HEIGHTSCALE, WIDTH, 0.5 * HEIGHTSCALE);
+            near_lineThree.backgroundColor = TCUIColorFromRGB(0xE8E8E8);
+            [headerView addSubview:near_lineThree];
+            
+            //创建3个按钮
+            _btnTitleArray = @[self.btntitle,@"销量最高",@"距离最近"];
+            
+            _isSelect = NO;
+            CGFloat btnWidth = WIDTH / 3;
+            for (int i = 0; i < 3; i++) {
+                UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+                btn.frame = CGRectMake(btnWidth * i, 40 * HEIGHTSCALE, btnWidth, 40 * HEIGHTSCALE);
+                btn.tag = 10000 + i;
+                [btn setTitle:_btnTitleArray[i] forState:UIControlStateNormal];
+                [btn setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+                [btn setTitleColor:TCUIColorFromRGB(0xF99E20) forState:UIControlStateSelected];
+                btn.titleLabel.font = [UIFont fontWithName:@"PingFangSC-Regular" size: 13* HEIGHTSCALE];
+                if (i == 0) {
+                    [btn setImage:[UIImage imageNamed:@"下拉三角"] forState:(UIControlStateSelected)];
+                    [btn setImage:[UIImage imageNamed:@"进入定位小三角"] forState:(UIControlStateNormal)];
+                    self.firBtn = btn;
+                }
+                
+                if ([self.seleStr isEqualToString:@"1"]) {
+                    if (i == 0){
+                        btn.selected = YES;
+                        [btn setTitleColor:TCUIColorFromRGB(0xF99E20) forState:UIControlStateNormal];
+                    }else{
+                        [btn setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+                    }
+                }else if ([self.seleStr isEqualToString:@"2"]){
+                    if (i == 1) {
+                        [btn setTitleColor:TCUIColorFromRGB(0xF99E20) forState:(UIControlStateNormal)];
+                    }else{
+                        [btn setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+                    }
+                }else if ([self.seleStr isEqualToString:@"3"]){
+                    if (i == 2) {
+                        [btn setTitleColor:TCUIColorFromRGB(0xF99E20) forState:(UIControlStateNormal)];
+                    }else{
+                        [btn setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+                    }
+                }
+                /******* 以下方法是让图片靠右，文字靠左 *******/
+                CGFloat imageWidth = btn.imageView.bounds.size.width;
+                CGFloat labelWidth = btn.titleLabel.bounds.size.width;
+                btn.imageEdgeInsets = UIEdgeInsetsMake(0, labelWidth , 0, -labelWidth - 10);
+                btn.titleEdgeInsets = UIEdgeInsetsMake(0, -imageWidth, 0, imageWidth);
+                
+                UIView *viewline = [[UIView alloc] initWithFrame:CGRectMake(WIDTH / 3, (40 - 11)/2 * HEIGHTSCALE , 1 * WIDHTSCALE, 11 * HEIGHTSCALE)];
+                viewline.backgroundColor = TCLineColor;
+                [btn addSubview:viewline];
+                
+                UIView *bottom_Line = [[UIView alloc] init];
+                bottom_Line.frame = CGRectMake(0, 39.5 * HEIGHTSCALE, WIDTH, 0.5 * HEIGHTSCALE);
+                bottom_Line.backgroundColor = TCLineColor;
+                [headerView addSubview:bottom_Line];
+                
+                [btn addTarget:self action:@selector(actionOfTap:) forControlEvents:(UIControlEventTouchUpInside)];
+                [headerView addSubview:btn];
+            }
+            return headerView;
+        }
+    } else if (tableView == _downTableView){
+        return [[UIView alloc] init];
+    }
+    return [[UIView alloc] init];
+}
+
+#pragma mark --- 点击button
+- (void)actionOfTap:(UIButton *)button {
+    UIButton *btn1 = (UIButton *)[self.view viewWithTag:10000];
+    UIButton *btn2 = (UIButton *)[self.view viewWithTag:10001];
+    UIButton *btn3 = (UIButton *)[self.view viewWithTag:10002];
+    if (button.tag == 10000){
+        self.seleStr = @"1";
+        self.isSelect = !self.isSelect;
+        //[self setupRefresh:@"1" andcateType:@""];
+        if (isShow){
+            //移除当前
+            [self closeCurrViewOnIndex:selectIndex isCloseShowView:YES];
+        }else{
+            //展开新的
+            [self showTListViewWIthSelectItemView:button];
+        }
+    } else if (button.tag == 10001){
+        self.seleStr = @"2";
+        self.isSelect = NO;
+        if (!self.shopidstr) {
+            [self setupRefresh:@"2" andcateType:@""];
+        }else{
+            [self setupRefresh:@"2" andcateType:self.shopidstr];
+        }
+        
+        if (isShow){
+            //移除当前
+            [self closeCurrViewOnIndex:selectIndex isCloseShowView:YES];
+        }else{
+            //展开新的
+            [self showTListViewWIthSelectItemView:button];
+        }
+        btn2.selected = YES;
+        btn1.selected = NO;
+        btn3.selected = NO;
+    } else if (button.tag == 10002){
+        self.seleStr = @"3";
+        self.isSelect = NO;
+        if (!self.shopidstr) {
+            [self setupRefresh:@"3" andcateType:@""];
+        }else{
+            [self setupRefresh:@"3" andcateType:self.shopidstr];
+        }
+        if (isShow){
+            //移除当前
+            [self closeCurrViewOnIndex:selectIndex isCloseShowView:YES];
+        }else{
+            //展开新的
+            [self showTListViewWIthSelectItemView:button];
+        }
+        btn3.selected = YES;
+        btn2.selected = NO;
+        btn1.selected = NO;
+        
+    }
+    [self.mainTableView reloadData];
+}
+//收起button的方法
+- (void)closeCurrViewOnIndex:(NSInteger)index isCloseShowView:(BOOL)isshow
+{
+    UIButton* btn = (UIButton*)[self.view viewWithTag:10000+index];
+    [self removeTListViewWithSelectItemView:btn];
+}
+
+- (void)removeTListViewWithSelectItemView:(UIButton*)sender{
+    isShow = NO;
+    [UIView animateWithDuration:0.2 animations:^{
+        [self.mainTableView setContentOffset:CGPointMake(0, 0)];
+        self.mainTableView.frame = CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT - StatusBarAndNavigationBarHeight - TabbarSafeBottomMargin);
+        self.departSelectView.tableView.frame = CGRectMake(0, 0, self.view.frame.size.width, 0);
+        //            self.departSelectView.dataArr = (NSMutableArray *)self.cateArr;
+        self.departSelectView.selectTitle = self.dropDownTitle;
+        
+        //            [self.departSelectView.tableView reloadData];
+    } completion:^(BOOL finished) {
+        [self.departSelectView removeFromSuperview];
+    }];
+    [backView removeFromSuperview];
+    selectIndex = sender.tag-10000;
+    if (selectIndex == 0){
+        //按钮样式变化
+        [sender setImage:[UIImage imageNamed:@"进入定位小三角"] forState:(UIControlStateNormal)];
+    }
+    self.sortTable.hidden = YES;
+    [sender setTitleColor:TCUIColorFromRGB(0x666666) forState:(UIControlStateNormal)];
+}
+
+#pragma mark - 展开
+- (void)showTListViewWIthSelectItemView:(UIButton*)sender{
+    if(sender.tag == 10000){
+        
+        [_firBtn setImage:[UIImage imageNamed:@"上拉三角"] forState:(UIControlStateNormal)];
+        //分类的接口
+        [UIView animateWithDuration:0.01 animations:^{
+            self.mainTableView.frame = CGRectMake(0,(-320 + 32) * HEIGHTSCALE, WIDTH, HEIGHT + 320 * HEIGHTSCALE - StatusBarAndNavigationBarHeight - 32 * HEIGHTSCALE);
+            self.mainTableView.contentOffset = CGPointMake(0, 0);
+            [self.mainTableView reloadData];
+            [[UIApplication sharedApplication].keyWindow addSubview:self.departSelectView];
+            self.departSelectView.userInteractionEnabled = YES;
+            
+            //加手势
+            UITapGestureRecognizer *departTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(departTap)];
+            departTap.delegate = self;
+            [self.departSelectView addGestureRecognizer:departTap];
+            
+            if (self.departSelectView.dataArr.count == 0) {
+                for (NSDictionary *dic in self.cateArr) {
+                    NSString *nameStr = dic[@"name"];
+                    [self.departSelectView.dataArr addObject:nameStr];
+                }
+            }
+            //            self.departSelectView.dataArr = (NSMutableArray *)self.cateArr;
+            self.departSelectView.selectTitle = self.dropDownTitle;
+            
+            self.departSelectView.tableView.frame = CGRectMake(0, 0, self.view.frame.size.width, 240 * HEIGHTSCALE);
+            
+            [self.departSelectView.tableView reloadData];
+        } completion:^(BOOL finished) {
+            
+        }];
+    }
+    selectIndex = sender.tag - 10000;
+    
+    if (selectIndex == 0){
+        //按钮样式变化
+        [sender setImage:[UIImage imageNamed:@"上拉三角"] forState:(UIControlStateNormal)];
+    }
+    [sender setTitleColor:TCUIColorFromRGB(0xF99E20) forState:(UIControlStateNormal)];
+    isShow = YES;
+}
+
+-(UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section{
+    UIView *footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.qh_width, 0)];
+    footerView.backgroundColor = [UIColor whiteColor];;
+    return footerView;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    static NSString *identfire=@"cellID";
+    UITableViewCell *cell=[tableView dequeueReusableCellWithIdentifier:identfire];
+    if (!cell) {
+        cell=[[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:identfire];
+        cell.backgroundColor = TCBgColor;
+    }
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    if (tableView == self.mainTableView){
+        if (indexPath.section == 0){
+            if (indexPath.row == 0){
+                
+                NSMutableArray *urlArr = [NSMutableArray array];
+                for (int i = 0; i < self.imageAdsArr.count; i++) {
+                    [urlArr addObject:self.imageAdsArr[i][@"images"]];
+                
+                NSLog(@"你看看%@",urlArr);
+                    SDCycleScrollView *cycleScrollView3;
+                    if (iPhoneX) {
+                        cycleScrollView3 = [SDCycleScrollView cycleScrollViewWithFrame:CGRectMake(0, 0, WIDTH, 200 * HEIGTHXSCALE) delegate:self placeholderImage:[UIImage imageNamed:@"placeholder"]];
+                    }else{
+                        cycleScrollView3 = [SDCycleScrollView cycleScrollViewWithFrame:CGRectMake(0, 0, WIDTH, 190 * HEIGHTSCALE) delegate:self placeholderImage:[UIImage imageNamed:@"placeholder"]];
+                    }
+                cycleScrollView3.currentPageDotImage = [UIImage imageNamed:@"轮播点（白）"];
+                cycleScrollView3.pageDotImage = [UIImage imageNamed:@"轮播点（透明）"];
+                cycleScrollView3.userInteractionEnabled = YES;
+                cycleScrollView3.tag = i;
+                    
+                    //         --- 模拟加载延迟
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                        if (urlArr.count != 0){
+                            cycleScrollView3.imageURLStringsGroup = urlArr;
+                        } else {
+                            NSLog(@"哈哈");
+                            _imagesURLStrings = @[@"首页banner占位图"];
+                            cycleScrollView3.imageURLStringsGroup = _imagesURLStrings;
+                        }
+                        cycleScrollView3.imageURLStringsGroup = urlArr;
+                    });
+                    
+                    
+                     cycleScrollView3.clickItemOperationBlock = ^(NSInteger index) {
+                    
+                         if ([self.imageAdsArr[index][@"redirectTo"] isEqualToString:@"1"]){
+                             if ([self.userDefaults valueForKey:@"userID"] == nil){
+                                 TCLoginViewController *loginVC = [[TCLoginViewController alloc] init];
+                                 [self presentViewController:loginVC animated:YES completion:nil];
+                             } else {
+                                 //跳转到二维码
+                                 TCQRCodelViewController *qrVC = [[TCQRCodelViewController alloc] init];
+                                 qrVC.hidesBottomBarWhenPushed = YES;
+                                 [self.navigationController pushViewController:qrVC animated:YES];
+                             }
+                             
+                         } else if ([self.imageAdsArr[index][@"redirectTo"] isEqualToString:@"2"]){
+                             //跳转到团购页面
+                             TCGroupViewController *groupVC = [[TCGroupViewController alloc] init];
+//                             groupVC.hidesBottomBarWhenPushed = YES;
+                             //此处应该选择的是tabbar
+                             groupVC.isTiao = YES;
+                             [self.navigationController pushViewController:groupVC animated:YES];
+                         } else if ([self.imageAdsArr[index][@"redirectTo"] isEqualToString:@"0"]){
+                             //是否登录
+                             NSString *loginStr = [NSString stringWithFormat:@"%@",self.imageAdsArr[index][@"login"]];
+                             //是否可以分享
+                             NSString *shareStr = [NSString stringWithFormat:@"%@",self.imageAdsArr[index][@"share"]];
+                            //bid
+                             NSString *bidStr = [NSString stringWithFormat:@"%@",self.imageAdsArr[index][@"bid"]];
+                            
+                             
+                             if ([self.imageAdsArr[index][@"url"] isEqualToString:@""]){
+                                 NSLog(@"不跳");
+                             } else {
+                                 if ([loginStr isEqualToString:@"1"]){
+                                     if ([self.userDefaults valueForKey:@"userID"] == nil){
+                                         TCLoginViewController *longinVC = [[TCLoginViewController alloc] init];
+                                         [self presentViewController:longinVC animated:YES completion:nil];
+                                     } else {
+                                         if ([shareStr isEqualToString:@"1"]){
+                                             //请求接口 春节活动
+                                             [self newActiveQuest:bidStr];
+                                         }
+                                     }
+                                 } else {
+                                     //跳
+                                     TCHtmlViewController * htmlVC = [[TCHtmlViewController alloc]init];
+                                     htmlVC.html = self.imageAdsArr[index][@"url"];
+                                     htmlVC.titles = _imageAdsArr[index][@"title"];
+                                     self.hidesBottomBarWhenPushed = YES;
+                                     [self.navigationController pushViewController:htmlVC animated:YES];
+                                     self.hidesBottomBarWhenPushed = NO;
+                                 }
+                             }
+                         }
+                     };
+                    
+                [cell.contentView addSubview:cycleScrollView3];
+                }
+            } else if (indexPath.row == 1){
+                TCHomeMenuCell *Menucell = [TCHomeMenuCell cellWithTableView:tableView menuArray:self.menuArray];
+                Menucell.delegate = self;
+                Menucell.selectionStyle = UITableViewCellSelectionStyleNone;
+                
+                return Menucell;
+            }
+        } else if (indexPath.section == 1){
+            TCListCell *listcell = [[TCListCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
+            listcell.selectionStyle = UITableViewCellSelectionStyleNone;
+            
+            if (self.dataMuArr.count > 1){
+                listcell.model = self.dataMuArr[indexPath.row];
+                listcell.distributionLabel.frame = CGRectMake(CGRectGetMaxX(listcell.lineView.frame) + 8 * WIDHTSCALE, CGRectGetMaxY(listcell.monthNumLabel.frame) + 11 * HEIGHTSCALE, 75 * WIDHTSCALE, 11 * HEIGHTSCALE);
+            } else {
+                NSLog(@"无数据");
+            }
+            
+            if (listcell.count < 3){
+                NSLog(@"不刷新");
+            } else {
+                listcell.delegate = self;
+            }
+            
+            return listcell;
+        }
+    } else if (tableView == _downTableView){
+        BSDropDownCell *Dropcell = [[BSDropDownCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"Dropcell"];
+        if (self.cateArr.count != 0) {
+            Dropcell.contextLbl.text = self.cateArr[indexPath.row][@"name"];
+        }
+        if (indexPath.row == 0) {
+            Dropcell.selectImgView.hidden = NO;
+        }
+        Dropcell.selectionStyle = UITableViewCellSelectionStyleNone;
+        return Dropcell;
+    }
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (tableView == self.mainTableView) {
+        if (indexPath.section > 0) {
+        TCShopMessageViewController *shopMessageVC = [[TCShopMessageViewController alloc] init];
+        OrderInfoModel *model = self.dataMuArr[indexPath.row];
+        shopMessageVC.shopImageStr = model.headPicStr;
+        shopMessageVC.MesDic = model.shareDic;
+        shopMessageVC.shopID = model.shopidStr;
+        [self.navigationController pushViewController:shopMessageVC animated:YES];
+    } else {
+       }
+    }
+}
+
+//点击活动刷新
+- (void)btnClick:(UITableViewCell *)cell{
+    NSIndexPath *indexPath = [self.mainTableView indexPathForCell:cell];
+    NSArray *indexPathAry = @[indexPath];
+    [self.mainTableView reloadRowsAtIndexPaths:indexPathAry withRowAnimation:UITableViewRowAnimationAutomatic];
+    //NSLog(@"刷新单个的一行了");
+}
+
+#pragma mark -- 加手势
+- (void)tapLocationView
+{
+    NSLog(@"手势");
+    TCLocationViewController *locationVC = [[TCLocationViewController alloc] init];
+    [self.mainTableView setContentOffset:CGPointMake(0, 0)];
+    locationVC.hidesBottomBarWhenPushed = YES;
+    locationVC.chooseBlock = ^(NSString *addStr, NSString *longla, NSString *latitu) {
+        self.locationLabel.text = addStr;
+        self.longtitude = longla;
+        self.latitude = latitu;
+        
+        CGSize size = [self.locationLabel sizeThatFits:CGSizeMake(WIDTH, 30 * HEIGHTSCALE)];
+        if (size.width > 200 * WIDHTSCALE){
+            self.locationLabel.frame = CGRectMake(CGRectGetMaxX(imageLocate.frame) + 6 * WIDHTSCALE, 0, 155 * WIDHTSCALE, 30 * HEIGHTSCALE);
+        } else {
+            self.locationLabel.frame = CGRectMake(CGRectGetMaxX(imageLocate.frame) + 6 * WIDHTSCALE, 0, size.width, 30 * HEIGHTSCALE);
+        }
+        //    self.locationLabel.frame = CGRectMake(32, 0, size.width, 30);
+        self.subscriptImage.frame = CGRectMake(CGRectGetMaxX(self.locationLabel.frame) + 4 * WIDHTSCALE, (30 - 4)/2 * HEIGHTSCALE, 7 * WIDHTSCALE, 4 * HEIGHTSCALE);
+        self.imageLoction.frame = CGRectMake(self.locationLabel.frame.origin.x - 6 * WIDHTSCALE - 10 * WIDHTSCALE, (30 - 14)/2 * HEIGHTSCALE, 10 * WIDHTSCALE, 14 * HEIGHTSCALE);
+        if (size.width > 200 * WIDHTSCALE){
+            self.navView.frame = CGRectMake(0, StatusBarHeight + 7 * HEIGHTSCALE, 200 * WIDHTSCALE + 16 * WIDHTSCALE, StatusBarHeight + 17.5 * HEIGHTSCALE);
+        } else {
+            self.navView.frame = CGRectMake(0, StatusBarHeight + 7 * HEIGHTSCALE, 32 * WIDHTSCALE + size.width + 30 * WIDHTSCALE + 16 * WIDHTSCALE, StatusBarHeight + 17.5 * HEIGHTSCALE);
+        }
+        [self setupRefresh:@"1" andcateType:@""];
+    };
+    locationVC.locaStr = self.locationLabel.text;
+    [self.navigationController pushViewController:locationVC animated:YES];
+}
+
+#pragma mark -- 搜索的点击事件
+-(void)searchBtn:(UIButton *)sender
+{
+    NSLog(@"搜索");
+    TCSearchController *searchVC = [[TCSearchController alloc] init];
+    searchVC.latStr = self.latitude;
+    searchVC.longStr = self.longtitude;
+    [self.navigationController pushViewController:searchVC animated:YES];
+}
+
+#pragma mark -- 二维码的点击事件
+- (void)saoBtn:(UIButton *)sender
+{
+//    NSLog(@"二维码");
+//    MMScanViewController *scanVc = [[MMScanViewController alloc] initWithQrType:MMScanTypeAll onFinish:^(NSString *result, NSError *error) {
+//        if (error) {
+//            NSLog(@"error: %@",error);
+//        } else {
+//            NSLog(@"扫描结果：%@",result);
+//
+//        }
+//    }];
+//    [self.navigationController pushViewController:scanVc animated:YES];
+    [TCProgressHUD showMessage:@"暂未开放"];
+    
+}
+
+#pragma mark - 左边的按钮
+-(void)btn_leftBtnClick:(UIButton *)button{
+    button.uxy_acceptEventInterval = 2; //防止重复点击
+    button.selected = !button.selected;
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+- (void)sendValue:(NSInteger)tag {
+    
+    if(tag == 1000){
+        NSLog(@"超市");
+        TCShopViewController *shopVC = [[TCShopViewController alloc] init];
+        shopVC.TitleStr = @"超市";
+        shopVC.typeStr = @"1";
+        [self.navigationController pushViewController:shopVC animated:YES];
+        
+    } else if (tag == 1001){
+        NSLog(@"鲜花");
+        TCShopViewController *shopVC = [[TCShopViewController alloc] init];
+        shopVC.TitleStr = @"鲜花";
+        shopVC.typeStr = @"2";
+        [self.navigationController pushViewController:shopVC animated:YES];
+    } else if (tag == 1002){
+        NSLog(@"干洗");
+        TCShopViewController *shopVC = [[TCShopViewController alloc] init];
+        
+        shopVC.TitleStr = @"水站";
+        shopVC.typeStr = @"3";
+        [self.navigationController pushViewController:shopVC animated:YES];
+    } else if (tag == 1003){
+        NSLog(@"全部");
+        TCAllclassViewController *allVC = [[TCAllclassViewController alloc]init];
+        allVC.cateArr = self.cateArr;
+        [self.navigationController pushViewController:allVC animated:YES];
+    }
+}
+
+#pragma mark -- 春节活动
+- (void)newActiveQuest:(NSString *)bidStr
+{
+    NSString *midStr;
+    if ([self.userDefaults valueForKey:@"userID"] == nil){
+        midStr = @"0";
+    } else {
+        midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+
+    }
+    NSString *timeStr = [TCGetTime getCurrentTime];
+
+    NSDictionary *dic1 = @{@"mid":midStr,@"timestamp":timeStr,@"bid":bidStr};
+    NSString *signStr1 = [TCServerSecret signStr:dic1];
+    NSDictionary *paramters = @{@"mid":midStr,@"timestamp":timeStr,@"bid":bidStr,@"sign":signStr1};
+    [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"103014"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+        NSLog(@"%@,%@",jsonDic,jsonStr);
+        NSString *codeStr = [NSString stringWithFormat:@"%@",jsonDic[@"code"]];
+        if ([codeStr isEqualToString:@"1"]){
+            TCHtmlViewController * htmlVC = [[TCHtmlViewController alloc]init];
+            htmlVC.html = jsonDic[@"data"][@"url"];
+            htmlVC.titles = jsonDic[@"data"][@"title"];
+            htmlVC.mesDic = jsonDic[@"data"];
+            htmlVC.isPacket = YES;
+            self.hidesBottomBarWhenPushed = YES;
+            [self.navigationController pushViewController:htmlVC animated:YES];
+            self.hidesBottomBarWhenPushed = NO;
+        }
+} failure:^(NSError *error) {
+    nil;
+}];
+}
+
+#pragma mark -- <selectViewDelegate>
+//在这个里边就是你点击上边的那个cell的每一行时候选的值
+-(void)didselectRow:(NSString *)context indexPath:(NSIndexPath *)indexPath selectView:(BSDropDownView *)selectView modelIndex:(NSInteger)index
+{
+    UIButton *btn = (UIButton *)[self.view viewWithTag:10000];
+    if ([context isEqualToString:@""]||!context||[context isEqual:[NSNull class]] || !context.length) return;
+    
+    //    context这个就是你点击每一行拿到的值
+ //   NSLog(@"id:%@---------%@",self.cateArr[indexPath.row][@"id"],context);
+    if (self.cateArr.count != 0) {
+        NSString *idstr = [NSString stringWithFormat:@"%@",self.cateArr[indexPath.row][@"id"]];
+        self.shopidstr = idstr;
+        [self setupRefresh:@"1" andcateType:idstr];
+        [btn setTitle:context forState:(UIControlStateNormal)];
+        self.dropDownTitle = context;
+        self.btntitle = context;
+        
+        NSLog(@"分类的table");
+        isShow = NO;
+        [backView removeFromSuperview];
+    }else{
+        isShow = NO;
+        [backView removeFromSuperview];
+    }
+    
+    NSLog(@"分类的table");
+   
+    //点击按钮会下移
+    [UIView animateWithDuration:0.2 animations:^{
+        [self.mainTableView setContentOffset:CGPointMake(0, 0)];
+        self.mainTableView.frame = CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT - StatusBarAndNavigationBarHeight - TabbarSafeBottomMargin);
+        self.navImageView.hidden = YES;
+        self.navView.hidden = NO;
+        self.mainTableView.contentInset  = UIEdgeInsetsMake(0, 0, 0, 0);
+    } completion:^(BOOL finished) {
+    }];
+    //    _btnTitleArray = @[self.showResuleLabel.text,@"销量最高",@"距离最近"];
+    
+}
+
+- (void)sendValue
+{
+     isShow = NO;
+    //点击按钮会下移
+    [UIView animateWithDuration:0.2 animations:^{
+        [self.mainTableView setContentOffset:CGPointMake(0, 0)];
+        self.mainTableView.frame = CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT - StatusBarAndNavigationBarHeight - TabbarSafeBottomMargin);
+        self.departSelectView.tableView.frame = CGRectMake(0, 0, self.view.frame.size.width, 0);
+        //            self.departSelectView.dataArr = (NSMutableArray *)self.cateArr;
+        self.departSelectView.selectTitle = self.dropDownTitle;
+        
+        [self.departSelectView.tableView reloadData];
+    } completion:^(BOOL finished) {
+        [self.departSelectView removeFromSuperview];
+    }];
+}
+
+#pragma mark -- 加载获取的数据
+//添加刷新
+- (void)setupRefresh:(NSString *)searchType andcateType:(NSString *)cate{
+    //下拉
+    __block int  page = 1;
+    MJRefreshNormalHeader *header = [MJRefreshNormalHeader headerWithRefreshingBlock:^{
+        page = 1;
+        [self requestShops:searchType andcateType:cate];
+        
+    }];
+    //设置刷新标题
+    [header setTitle:@"下拉刷新顺道嘉周边..." forState:MJRefreshStateIdle];
+    [header setTitle:@"松开刷新顺道嘉周边..." forState:MJRefreshStatePulling];
+    [header setTitle:@"正在刷新顺道嘉周边..." forState:MJRefreshStateRefreshing];
+    // 设置字体
+    header.stateLabel.font = [UIFont systemFontOfSize:12];
+    header.lastUpdatedTimeLabel.font = [UIFont systemFontOfSize:12];
+    // 设置颜色
+    header.stateLabel.textColor = [UIColor lightGrayColor];
+    header.lastUpdatedTimeLabel.textColor = [UIColor lightGrayColor];
+    
+    self.mainTableView.mj_header = header;
+    [header beginRefreshing];
+    
+    //上拉
+    MJRefreshBackNormalFooter *footer = [MJRefreshBackNormalFooter footerWithRefreshingBlock:^{
+        page++;
+        // [self requestShops:page andcateType:searchType];
+        [self requestShops:page andType:searchType andcateType:cate];
+        
+    }];
+    //设置上拉标题
+    [footer setTitle:@"上拉加载更多顺道嘉周边" forState:MJRefreshStateIdle];
+    [footer setTitle:@"正在加载更多顺道嘉周边..." forState:MJRefreshStateRefreshing];
+    [footer setTitle:@"无更多顺道嘉周边!" forState:MJRefreshStateNoMoreData];
+    footer.stateLabel.font = [UIFont systemFontOfSize:12];
+    footer.stateLabel.textColor = [UIColor lightGrayColor];
+    self.mainTableView.mj_footer = footer;
+}
+
+//下拉请求
+- (void)requestShops:(NSString *)searchType andcateType:(NSString *)cate{
+    UIButton *btn = (UIButton *)[self.view viewWithTag:10000];
+    UIButton *btn1 = (UIButton *)[self.view viewWithTag:10001];
+    UIButton *btn2 = (UIButton *)[self.view viewWithTag:10002];
+    //清除sdwebimage 的缓存 商家跟换头像后 首页头像还是之前的
+    [[SDImageCache sharedImageCache] clearDisk];
+    [self.dataMuArr removeAllObjects];
+    [self.cateArr removeAllObjects];
+    
+    //    [_newshopMuArr removeAllObjects];
+    
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    NSLog(@"%@",[self.userDefaults valueForKey:@"latitude"]);
+    //如果登录了
+    NSDictionary *paramters;
+    
+    if ([cate isEqualToString:@""]) {
+        if ([self.userDefaults valueForKey:@"userID"] == nil){
+            NSDictionary *dic1 = @{@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId]};
+            NSString *signStr1 = [TCServerSecret signStr:dic1];
+            paramters = @{@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId],@"sign":signStr1};
+        } else {
+            NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+            NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+            
+            NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId]};
+            NSString *signStr = [TCServerSecret signStr:dic];
+            paramters = @{@"mid":midStr,@"token":tokenStr,@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr,@"deviceid":[TCGetDeviceId getDeviceId]};
+        }
+        
+        NSLog(@" %@--",paramters);
+        [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101015"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+            NSLog(@"%@,%@",jsonDic,jsonStr);
+            
+            NSMutableArray *arr = jsonDic[@"data"][@"shopList"];
+            for (int i = 0; i < arr.count; i++) {
+                OrderInfoModel *model = [OrderInfoModel orderInfoWithDictionary:arr[i]];
+                [self.dataMuArr addObject:model];
+            }
+            [self.cateArr removeAllObjects];
+            for (NSDictionary *dic in jsonDic[@"data"][@"shopcates"]) {
+                NSString * idStr = [NSString stringWithFormat:@"%@",dic[@"id"]];
+                NSString *name = [NSString stringWithFormat:@"%@",dic[@"name"]];
+                NSDictionary *dicMes = @{@"id":idStr,@"name":name};
+                NSLog(@"类型名字:%@",name);
+                [self.cateArr addObject:dicMes];
+            }
+            //        [self.departSelectView.tableView reloadData];
+            //        [self.downTableView reloadData];
+            self.imageAdsArr = jsonDic[@"data"][@"bannerList"];
+            
+            [self.mainTableView.mj_header endRefreshing];
+            
+            if ([searchType isEqualToString:@"1"]) {
+                btn.selected = YES;
+                btn1.selected = NO;
+                btn2.selected = NO;
+            }else if ([searchType isEqualToString:@"2"]){
+                btn1.selected = YES;
+                btn.selected = NO;
+                btn2.selected = NO;
+            }else if ([searchType isEqualToString:@"3"]){
+                btn2.selected = YES;
+                btn.selected = NO;
+                btn1.selected = NO;
+            }
+            [self.mainTableView reloadData];
+            [btn setTitle:self.btntitle forState:(UIControlStateNormal)];
+        } failure:^(NSError *error) {
+            nil;
+        }];
+        [self.mainTableView.mj_footer resetNoMoreData];
+    }else{
+        if ([self.userDefaults valueForKey:@"userID"] == nil){
+            NSDictionary *dic1 = @{@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId],@"cateid":cate};
+            NSString *signStr1 = [TCServerSecret signStr:dic1];
+            paramters = @{@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId],@"sign":signStr1,@"cateid":cate};
+        } else {
+            NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+            NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+            
+            NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId],@"cateid":cate};
+            NSString *signStr = [TCServerSecret signStr:dic];
+            paramters = @{@"mid":midStr,@"token":tokenStr,@"page":@"1",@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr,@"deviceid":[TCGetDeviceId getDeviceId],@"cateid":cate};
+        }
+        
+        NSLog(@" %@--",paramters);
+        [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101015"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+            NSLog(@"%@,%@",jsonDic,jsonStr);
+            
+            NSMutableArray *arr = jsonDic[@"data"][@"shopList"];
+            for (int i = 0; i < arr.count; i++) {
+                OrderInfoModel *model = [OrderInfoModel orderInfoWithDictionary:arr[i]];
+                [self.dataMuArr addObject:model];
+            }
+            
+            for (NSDictionary *dic in jsonDic[@"data"][@"shopcates"]) {
+                NSString * idStr = [NSString stringWithFormat:@"%@",dic[@"id"]];
+                NSString *name = [NSString stringWithFormat:@"%@",dic[@"name"]];
+                NSDictionary *dicMes = @{@"id":idStr,@"name":name};
+                NSLog(@"类型名字:%@",name);
+                [self.cateArr addObject:dicMes];
+            }
+            //        [self.departSelectView.tableView reloadData];
+            //        [self.downTableView reloadData];
+            self.imageAdsArr = jsonDic[@"data"][@"bannerList"];
+            
+            [self.mainTableView.mj_header endRefreshing];
+            
+            if ([searchType isEqualToString:@"1"]) {
+                btn.selected = YES;
+                btn1.selected = NO;
+                btn2.selected = NO;
+            }else if ([searchType isEqualToString:@"2"]){
+                btn1.selected = YES;
+                btn.selected = NO;
+                btn2.selected = NO;
+            }else if ([searchType isEqualToString:@"3"]){
+                btn2.selected = YES;
+                btn.selected = NO;
+                btn1.selected = NO;
+            }
+            [self.mainTableView reloadData];
+            [btn setTitle:self.btntitle forState:(UIControlStateNormal)];
+        } failure:^(NSError *error) {
+            nil;
+        }];
+        [self.mainTableView.mj_footer resetNoMoreData];
+    }
+}
+
+//上拉加载
+- (void)requestShops:(int)page andType:(NSString *)searchType andcateType:(NSString *)cate{
+     UIButton *btn = (UIButton *)[self.view viewWithTag:10000];
+    [self.cateArr removeAllObjects];
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    NSString *pageStr = [NSString stringWithFormat:@"%d",page];
+    //如果登录了
+    NSDictionary *paramters;
+    if ([cate isEqualToString:@""]) {
+        if ([self.userDefaults valueForKey:@"userID"]){
+            NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+            NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+            
+            NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId]};
+            NSString *signStr = [TCServerSecret signStr:dic];
+            paramters = @{@"mid":midStr,@"token":tokenStr,@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr,@"deviceid":[TCGetDeviceId getDeviceId]};
+        } else {
+            NSDictionary *dic1 = @{@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"deviceid":[TCGetDeviceId getDeviceId]};
+            NSString *signStr1 = [TCServerSecret signStr:dic1];
+            paramters = @{@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr1,@"deviceid":[TCGetDeviceId getDeviceId]};
+        }
+        
+        NSLog(@" %@--",paramters);
+        [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101015"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+            NSLog(@"%@,%@",jsonDic,jsonStr);
+            
+            NSMutableArray *arr = jsonDic[@"data"][@"shopList"];
+            for (int i = 0; i < arr.count; i++) {
+                OrderInfoModel *model = [OrderInfoModel orderInfoWithDictionary:arr[i]];
+                [self.dataMuArr addObject:model];
+            }
+            for (NSDictionary *dic in jsonDic[@"data"][@"shopcates"]) {
+                NSString * idStr = [NSString stringWithFormat:@"%@",dic[@"id"]];
+                NSString *name = [NSString stringWithFormat:@"%@",dic[@"name"]];
+                NSDictionary *dicMes = @{@"id":idStr,@"name":name};
+                NSLog(@"类型名字:%@",name);
+                [self.cateArr addObject:dicMes];
+            }
+            
+            [self.departSelectView.tableView reloadData];
+            [self.downTableView reloadData];
+            [self.mainTableView.mj_footer endRefreshing];
+            [self.mainTableView reloadData];
+            [btn setTitle:self.btntitle forState:(UIControlStateNormal)];
+        } failure:^(NSError *error) {
+            nil;
+        }];
+        [self.mainTableView.mj_footer resetNoMoreData];
+    }
+    else{
+        if ([self.userDefaults valueForKey:@"userID"]){
+            NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+            NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+            
+            NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"cateid":cate};
+            NSString *signStr = [TCServerSecret signStr:dic];
+            paramters = @{@"mid":midStr,@"token":tokenStr,@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr,@"cateid":cate};
+        } else {
+            NSDictionary *dic1 = @{@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"cateid":cate};
+            NSString *signStr1 = [TCServerSecret signStr:dic1];
+            paramters = @{@"page":pageStr,@"timestamp":timeStr,@"latitude":self.latitude,@"longtitude":self.longtitude,@"searchType":searchType,@"sign":signStr1,@"cateid":cate};
+        }
+        
+        NSLog(@" %@--",paramters);
+        [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101015"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+            NSLog(@"%@,%@",jsonDic,jsonStr);
+            
+            NSMutableArray *arr = jsonDic[@"data"][@"shopList"];
+            for (int i = 0; i < arr.count; i++) {
+                OrderInfoModel *model = [OrderInfoModel orderInfoWithDictionary:arr[i]];
+                [self.dataMuArr addObject:model];
+            }
+            for (NSDictionary *dic in jsonDic[@"data"][@"shopcates"]) {
+                NSString * idStr = [NSString stringWithFormat:@"%@",dic[@"id"]];
+                NSString *name = [NSString stringWithFormat:@"%@",dic[@"name"]];
+                NSDictionary *dicMes = @{@"id":idStr,@"name":name};
+                NSLog(@"类型名字:%@",name);
+                [self.cateArr addObject:dicMes];
+            }
+            
+            [self.departSelectView.tableView reloadData];
+            [self.downTableView reloadData];
+            [self.mainTableView.mj_footer endRefreshing];
+            [self.mainTableView reloadData];
+        } failure:^(NSError *error) {
+            nil;
+        }];
+        [self.mainTableView.mj_footer resetNoMoreData];
+    }
+}
+
+#pragma mark -- 跑马灯的点击事件
+- (void)upDate
+{
+    NSLog(@"点击了删除");
+    [self.mainTableView reloadData];
+    isPaoMaDeng = YES;
+}
+
+//实现手势的代理方法
+-(BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(nonnull UITouch *)touch{
+    if ([NSStringFromClass([touch.view class]) isEqualToString:@"UITableViewCellContentView"]) {
+        return NO;
+    }else{
+        return YES;
+    }
+}
+
+#pragma mark -- 点击空白处的手势
+- (void)departTap
+{
+    isShow = NO;
+    [UIView animateWithDuration:0.2 animations:^{
+        [self.mainTableView setContentOffset:CGPointMake(0, 0)];
+        self.mainTableView.frame = CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT - StatusBarAndNavigationBarHeight - TabbarSafeBottomMargin);
+        self.departSelectView.tableView.frame = CGRectMake(0, 0, self.view.frame.size.width, 0);
+        //            self.departSelectView.dataArr = (NSMutableArray *)self.cateArr;
+        self.departSelectView.selectTitle = self.dropDownTitle;
+
+        [self.departSelectView.tableView reloadData];
+    } completion:^(BOOL finished) {
+        [self.departSelectView removeFromSuperview];
+    }];
+}
+
+/*
+ #pragma mark - Navigation
+ 
+ // In a storyboard-based application, you will often want to do a little preparation before navigation
+ - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+ // Get the new view controller using [segue destinationViewController].
+ // Pass the selected object to the new view controller.
+ }
+ */
+
+@end

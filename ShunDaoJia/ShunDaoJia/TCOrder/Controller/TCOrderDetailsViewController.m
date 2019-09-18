@@ -1,0 +1,825 @@
+//
+//  TCOrderDetailsViewController.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2017/12/11.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import "TCOrderDetailsViewController.h"
+#import "TCOrderStatusView.h"
+#import "TCTrackingOrderViewController.h"
+#import "TCRefundViewController.h"
+#import "TCOrderCommitViewController.h"
+#import "TCChooseDiscountController.h"
+#import "TCSeleAdressTableViewCell.h"
+#import "TCOrderGoodsTableViewCell.h"
+#import "TCSpecialTableViewCell.h"
+
+#import "TCPayStateTableViewCell.h"
+#import "TCOrderDicTableViewCell.h"
+#import "TCPayStyeTableViewCell.h"
+#import "TCGoodsInfo.h"
+#import "TCDiscountsModel.h" //优惠
+#import "TCShierViewController.h"//收银台
+#import "TCCanceView.h"
+#import "TCSubmitViewController.h" //再来一单
+#import "TCPhysicalViewController.h" //查看物流
+#import "TCMainViewController.h"
+#import "TCRefundViewController.h" //申诉
+#import "TCShopMessageViewController.h"
+#import "TCOrderViewController.h"
+
+@interface TCOrderDetailsViewController ()<UITableViewDelegate,UITableViewDataSource,tapOrderDelegete,clickBtnDelegate,BaseButtonDelegete,PayStateDelegete>
+{
+    CGRect  textSize; //cell随着高度增而变化
+    CGRect  cellSize;
+    CGRect  cellTwoSize;
+    CGRect  cellthreeSize;
+    float yuanPrice;
+    float youhuiPrice;
+    NSString *endPriceStr; //共优惠
+}
+@property (nonatomic, strong) UITableView *listTabelView; //详细TableView
+@property (nonatomic, assign) CGRect celltwoSize;
+@property (nonatomic, strong) TCOrderStatusView *orderStatuView;
+@property (nonatomic, strong) NSUserDefaults *userDefaults;
+@property (nonatomic, strong) NSDictionary *messDic;
+@property (nonatomic, strong) NSMutableArray *goodsArr;
+@property (nonatomic, strong) NSMutableArray *disCountArr; //优惠
+
+@end
+
+@implementation TCOrderDetailsViewController
+
+//- (void)viewWillDisappear:(BOOL)animated{
+//    if ([self.navigationController.viewControllers indexOfObject:self]==NSNotFound) {
+//        if (self.isPayOK == YES){
+//           
+//            //标记一下，在这个页面消失时做相应处理
+//            [self.navigationController popToRootViewControllerAnimated:NO];
+//            //发送一个通知如何 老哥
+//            [[NSNotificationCenter defaultCenter] postNotificationName:@"dingdanshuaxin" object:nil];
+//        } else {
+//            [self.navigationController popViewControllerAnimated:YES];
+//        }
+//    }
+//}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = TCBgColor;
+    self.title = @"订单详情";
+    self.userDefaults = [NSUserDefaults standardUserDefaults];
+    self.goodsArr = [NSMutableArray array];
+    self.disCountArr = [NSMutableArray array];
+    
+    //设置按钮
+    UIButton *rightBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    [rightBtn setImage:[UIImage imageNamed:@"客服 (1)"] forState:(UIControlStateNormal)];
+    rightBtn.frame = CGRectMake(WIDTH - 16 - 18, 6, 18, 18);
+    [rightBtn addTarget:self action:@selector(clickRightBtn:) forControlEvents:(UIControlEventTouchUpInside)];
+    UIBarButtonItem *rightBtnItem = [[UIBarButtonItem alloc]initWithCustomView:rightBtn];
+    self.navigationItem.rightBarButtonItem = rightBtnItem;
+    
+    //请求详情的接口
+    [self createQuest];
+    //    AdjustsScrollViewInsetNever(self, self.listTabelView);
+    
+    // Do any additional setup after loading the view.
+}
+
+// tbleView
+- (void)tableview {
+    //创建历史记录的tableView
+    self.listTabelView = [[UITableView alloc]initWithFrame:CGRectMake(0, StatusBarAndNavigationBarHeight, WIDTH, HEIGHT - StatusBarAndNavigationBarHeight - TabbarSafeBottomMargin - 48) style:UITableViewStyleGrouped];
+    self.listTabelView.delegate = self;
+    self.listTabelView.dataSource = self;
+    self.listTabelView.backgroundColor = TCBgColor;
+    self.listTabelView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    [self.view addSubview: self.listTabelView];
+    //解决ios11的导航栏布局的问
+    AdjustsScrollViewInsetNever (self,self.listTabelView);
+}
+#pragma mark -- 订单详情的接口
+- (void)createQuest
+{
+
+    [self.goodsArr removeAllObjects];
+    [self.disCountArr removeAllObjects];
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    
+    NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+    NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+    
+    NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"timestamp":timeStr,@"orderid":self.idStr};
+    NSLog(@"%@",dic);
+    NSString *signStr = [TCServerSecret signStr:dic];
+    
+    NSDictionary *paramters = @{@"mid":midStr,@"token":tokenStr,@"timestamp":timeStr,@"orderid":self.idStr,@"sign":signStr};
+    [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"102014"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+        NSLog(@"%@,%@",jsonDic,jsonStr);
+        self.messDic = jsonDic[@"data"];
+    
+        NSMutableArray *arr = jsonDic[@"data"][@"goods"];
+        for (int i = 0; i < arr.count; i++) {
+            TCGoodsInfo *model = [TCGoodsInfo orderInfoWithDictionary:arr[i] andType:@"2"];
+            [self.goodsArr addObject:model];
+        }
+        //满减优惠
+        NSMutableArray *disarr = jsonDic[@"data"][@"discount"];
+        for (int i = 0; i < disarr.count; i++) {
+            TCDiscountsModel *model = [TCDiscountsModel DiscountsInfoWithDictionary:disarr[i]];
+            [self.disCountArr addObject:model];
+        }
+        
+        //底部按钮
+        self.orderStatuView = [[TCOrderStatusView alloc] initWithFrame:CGRectMake(0, HEIGHT - 48 - TabbarSafeBottomMargin, WIDTH, 48) andDic:jsonDic[@"data"]];
+        self.orderStatuView.delegate = self;
+        self.orderStatuView.orderdelegate = self;
+        
+        [self.view addSubview:self.orderStatuView];
+        NSLog(@"%@",self.goodsArr);
+        
+        [self tableview];
+        [self.listTabelView reloadData];
+    } failure:^(NSError *error) {
+        nil;
+    }];
+}
+
+#pragma mark -- clickBtnDelegate
+-(void)clickBtn:(UIButton *)sender{
+    NSString *status = [NSString stringWithFormat:@"%@",self.messDic[@"status"]];
+    NSString *orderid = [NSString stringWithFormat:@"%@",self.messDic[@"orderid"]];
+    NSString *typeStr = [NSString stringWithFormat:@"%@",self.messDic[@"type"]];
+    NSString *commentStatus = [NSString stringWithFormat:@"%@",self.messDic[@"commentStatus"]];
+    NSString *issStr = [NSString stringWithFormat:@"%@",self.messDic[@"issue"]];
+    //团购的订单
+    if ([typeStr isEqualToString:@"1"] && [status intValue] > 0){
+        if ([sender.titleLabel.text isEqualToString:@"查看物流"]){
+            NSLog(@"查看物流");
+            TCPhysicalViewController *phyVC = [[TCPhysicalViewController alloc] init];
+            phyVC.expressDic = self.messDic[@"express"];
+            
+            NSString *str; //物流的商品头像
+            NSArray *arr = self.messDic[@"goods"];
+            for (int i = 0; i < arr.count; i ++) {
+                str = arr[0][@"src"];
+            }
+            phyVC.goodsImageStr = str;
+            [self.navigationController pushViewController:phyVC animated:YES];
+        }
+    } else if ([status isEqualToString:@"0"]){
+        if ([sender.titleLabel.text isEqualToString:@"去支付"]) {
+            TCShierViewController *sheirVC = [[TCShierViewController alloc]init];
+            sheirVC.orderidStr = orderid;
+            [self.navigationController pushViewController:sheirVC animated:YES];
+        }else if ([sender.titleLabel.text isEqualToString:@"取消订单"]){
+            NSLog(@"取消订单弹窗");
+            TCCanceView *canceView = [[TCCanceView alloc] initWithFrame:self.view.frame];
+            canceView.delegate = self;
+            canceView.orderidStr = self.messDic[@"orderid"];
+            [self.view addSubview:canceView];
+        }
+    } else if ([status isEqualToString:@"1"]){
+        if ([sender.titleLabel.text isEqualToString:@"催发货"]) {
+            //催发货的接口
+            [self expediteQuest:self.messDic[@"orderid"]];
+        }else if ([sender.titleLabel.text isEqualToString:@"取消订单"]){
+            NSLog(@"取消订单弹窗");
+            TCCanceView *canceView = [[TCCanceView alloc] initWithFrame:self.view.frame];
+            canceView.orderidStr = self.messDic[@"orderid"];
+            canceView.delegate = self;
+            [self.view addSubview:canceView];
+        }
+    } else if ([status isEqualToString:@"2"]){
+        [self expediteQuest:self.messDic[@"orderid"]];
+    } else if ([status isEqualToString:@"3"] || [status isEqualToString:@"4"]){
+        NSLog(@"确认收货");
+        if ([typeStr isEqualToString:@"2"]){
+            [self ConfirmationRequest:orderid];
+        } else {
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"确认商品已到达您手中？" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"确认送达" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                NSString *orderid = self.messDic[@"orderid"];
+                [self ConfirmationRequest:orderid];
+            }]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"点错了" style:UIAlertActionStyleCancel handler:nil]];
+            [self.navigationController presentViewController:alert animated:YES completion:nil];
+        }
+        
+    } else if ([status isEqualToString:@"5"] && [commentStatus isEqualToString:@"0"] && ![issStr isEqualToString:@"1"]){
+        if ([sender.titleLabel.text isEqualToString:@"去评价"]) {
+            TCOrderCommitViewController *orderCommit = [[TCOrderCommitViewController alloc]init];
+            orderCommit.orderid = self.messDic[@"orderid"];
+            orderCommit.shopImageStr = self.messDic[@"shop"][@"headPic"];
+            orderCommit.shopNameStr = self.messDic[@"shop"][@"name"];
+            [self.navigationController pushViewController:orderCommit animated:YES];
+        }else if ([sender.titleLabel.text isEqualToString:@"再来一单"]){
+            NSLog(@"再来一单");
+            [self againOrder:self.messDic[@"orderid"]];
+        }
+    } else if ([status isEqualToString:@"5"] && [commentStatus isEqualToString:@"0"] && [issStr isEqualToString:@"1"]) {
+        if ([sender.titleLabel.text isEqualToString:@"去评价"]) {
+            TCOrderCommitViewController *orderCommit = [[TCOrderCommitViewController alloc]init];
+            orderCommit.orderid = self.messDic[@"orderid"];
+            orderCommit.shopImageStr = self.messDic[@"shop"][@"headPic"];
+            orderCommit.shopNameStr = self.messDic[@"shop"][@"name"];
+            [self.navigationController pushViewController:orderCommit animated:YES];
+        }else if ([sender.titleLabel.text isEqualToString:@"再来一单"]){
+            NSLog(@"再来一单");
+            [self againOrder:self.messDic[@"orderid"]];
+        } else if ([sender.titleLabel.text isEqualToString:@"申诉"]) {
+            NSLog(@"申诉");
+            TCRefundViewController *orderRefund = [[TCRefundViewController alloc]init];
+            orderRefund.orderid = self.messDic[@"orderid"];
+            CGFloat x = 0.0;
+            int y = 0;
+            CGFloat h = 0.0;
+            NSArray *arr = self.messDic[@"goods"];
+            for (int i = 0; i < arr.count; i++) {
+                float price = [arr[i][@"new_price"] floatValue];
+                x += [arr[i][@"amount"] floatValue] * price;
+                y += [arr[i][@"amount"] intValue];
+                h = [self.messDic[@"distributionPrice"] floatValue];
+            }
+            orderRefund.moneyStr = [NSString stringWithFormat:@"%@",[NSString stringWithFormat:@"%.2f", (x + h)]];
+            [self.navigationController pushViewController:orderRefund animated:YES];
+        }
+            
+    } else if ([status isEqualToString:@"5"] && ![commentStatus isEqualToString:@"0"]){
+        NSLog(@"再来一单");
+        [self againOrder:self.messDic[@"orderid"]];
+    
+    } else if ([status isEqualToString:@"-2"]){
+        [self againOrder:self.messDic[@"orderid"]];
+        
+    } else if ([issStr isEqualToString:@"1"]){
+        NSLog(@"申诉");
+    }
+}
+//创建底部的View
+- (void)createBottomView
+{
+    UIView *bottomView = [[UIView alloc] init];
+    bottomView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+    bottomView.frame = CGRectMake(0, HEIGHT - 48, WIDTH, 48);
+    [self.view addSubview:bottomView];
+    //金额
+    UILabel *moneyTitleLabel = [UILabel publicLab:[NSString stringWithFormat:@"金额：¥%@",@"200"] textColor:TCUIColorFromRGB(0x4C4C4C) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Medium" size:16 numberOfLines:0];
+    [self fuwenbenLabel:moneyTitleLabel FontNumber:[UIFont fontWithName:@"PingFangSC-Semibold" size:16] AndRange:NSMakeRange(3, 4) AndColor:TCUIColorFromRGB(0xFF3355)];
+    moneyTitleLabel.frame = CGRectMake(18, 0, WIDTH - 120, 48);
+    [bottomView addSubview:moneyTitleLabel];
+    
+    //去支付按钮
+    UIButton *goPayBtn = [UIButton buttonWithType:(UIButtonTypeCustom)];
+    goPayBtn.frame = CGRectMake(WIDTH - 120, 0, 120, 48);
+    goPayBtn.backgroundColor = TCUIColorFromRGB(0xF99E20);
+    [goPayBtn setTitle:@"去支付" forState:(UIControlStateNormal)];
+    [goPayBtn setTitleColor:TCUIColorFromRGB(0xFFFFFF) forState:(UIControlStateNormal)];
+    goPayBtn.titleLabel.font = [UIFont fontWithName:@"PingFangSC-Medium" size:16];
+    [goPayBtn addTarget:self action:@selector(goPat:) forControlEvents:(UIControlEventTouchUpInside)];
+    [bottomView addSubview:goPayBtn];
+}
+
+
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section{
+    //商铺信息
+    if (section == 2){
+        UIView *headView = [[UIView alloc] init];
+        headView.frame = CGRectMake(0, 0, WIDTH, 48 + 8);
+        headView.backgroundColor = TCBgColor;
+        //店铺View
+        UIView *shopheadView = [[UIView alloc] init];
+        shopheadView.frame = CGRectMake(8, 8, WIDTH - 16, 48);
+        shopheadView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+        [headView addSubview:shopheadView];
+        
+        //进入的三角
+        UIImageView *sanjiaoImage = [[UIImageView alloc] init];
+        sanjiaoImage.image = [UIImage imageNamed:@"进入三角"];
+        sanjiaoImage.frame = CGRectMake(WIDTH - 16 - 8 - 5,(48 - 8)/2, 5, 8);
+        [shopheadView addSubview:sanjiaoImage];
+        
+        UITapGestureRecognizer *tapShop = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapShop)];
+        [shopheadView addGestureRecognizer:tapShop];
+        
+        //店铺的图片
+        UIImageView *shopImage = [[UIImageView alloc] init];
+        [shopImage sd_setImageWithURL:[NSURL URLWithString:self.messDic[@"shop"][@"headPic"]] placeholderImage:[UIImage imageNamed:@"商品详情页占位"]];
+        shopImage.frame = CGRectMake(8, (48 - 24)/2, 24, 24);
+        shopImage.layer.cornerRadius = 2;
+        shopImage.layer.masksToBounds = YES;
+        [shopheadView addSubview:shopImage];
+        //店铺名称
+        UILabel *shopTitleLabel = [UILabel publicLab:self.messDic[@"shop"][@"name"] textColor:TCUIColorFromRGB(0x3666666) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        shopTitleLabel.frame = CGRectMake(CGRectGetMaxX(shopImage.frame) + 8, 0, WIDTH - 12 - (CGRectGetMaxX(shopImage.frame) + 8), 48);
+        [shopheadView addSubview:shopTitleLabel];
+        
+        return headView;
+    } else if (section == 3){
+        UIView *headView_two = [[UIView alloc] init];
+        headView_two.frame = CGRectMake(0, 0, WIDTH, 3);
+        headView_two.backgroundColor = TCBgColor;
+        
+        UIView *writhheadView = [[UIView alloc] init];
+        writhheadView.frame = CGRectMake(8, 0, WIDTH - 16, 3);
+        writhheadView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+        [headView_two addSubview:writhheadView];
+        
+        return headView_two;
+    }
+    return [[UIView alloc] init];
+}
+
+-(UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section{
+    if (section == 4){
+        UIView *footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.qh_width, 26)];
+        footerView.backgroundColor = TCBgColor;
+        return footerView;
+    }
+    return [[UIView alloc] init];
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    if (section == 2){
+        return 48 + 8;
+    } else if (section == 3){
+        return self.disCountArr.count + 1;
+    }
+    return 8;
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 5;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    if (section == 2){
+        return self.goodsArr.count;
+    } else if (section == 3){
+        return self.disCountArr.count + 1;
+    }
+    return 1;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section{
+    if (section == 4){
+        return 26;
+    }
+    return 0.1;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+    if (indexPath.section == 0){
+        return 84;
+    } else if (indexPath.section == 1){
+        return cellSize.size.height;
+    } else if (indexPath.section == 2){
+        return 80;
+    } else if (indexPath.section == 3){
+        if (indexPath.row < self.disCountArr.count){
+            return 46;
+        } else {
+            return 68;
+        }
+       
+    } else if (indexPath.section == 4){
+        return 46 * 4;
+    }
+    return 46;
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    // 定义唯一标识
+    static NSString *CellIdentifier = @"Cell";
+    // 通过indexPath创建cell实例 每一个cell都是单独的
+    UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
+    if (!cell) {
+        cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellIdentifier];
+    }
+    cell.backgroundColor = TCBgColor;
+    cell.selectionStyle=UITableViewCellSelectionStyleNone;//设置cell点击效果
+    
+    if (indexPath.section == 0){
+        TCPayStateTableViewCell *PayStatecell = [[TCPayStateTableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"PayStatecell" andDic:self.messDic];
+        PayStatecell.delegate = self;
+        PayStatecell.selectionStyle = UITableViewCellSelectionStyleNone;
+        PayStatecell.backgroundColor = TCBgColor;
+        return PayStatecell;
+    } else if (indexPath.section == 1){
+        //
+        UIView *backView = [[UIView alloc] init];
+        backView.frame = CGRectMake(8, 0, WIDTH - 16, 66 + 94 + 50);
+        backView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+        [cell.contentView addSubview:backView];
+        
+        //能点击的View
+        UIView *tapView = [[UIView alloc] init];
+        tapView.frame = CGRectMake(0, 0, WIDTH - 16, 66);
+        tapView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+        tapView.userInteractionEnabled = YES;
+        [backView addSubview:tapView];
+        //手势
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap)];
+        [tapView addGestureRecognizer:tap];
+        //订单icon
+        UIImageView *stateImage = [[UIImageView alloc] init];
+        stateImage.frame = CGRectMake(16, 26, 14, 14);
+        stateImage.image = [UIImage imageNamed:@"订单跟踪（当前）"];
+        [tapView addSubview:stateImage];
+        //订单状态
+        NSString *stateStr;
+        NSString *stateTimeStr;
+        NSArray *statusInfoArr = self.messDic[@"status_info"];
+        for (int i = 0; i < statusInfoArr.count; i++) {
+            stateStr = statusInfoArr[0][@"name"];
+            stateTimeStr = statusInfoArr[0][@"time"];
+        }
+        
+        UILabel *stateLabel = [UILabel publicLab:stateStr textColor:TCUIColorFromRGB(0x333333) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        stateLabel.frame = CGRectMake(38, 16, WIDTH - 16 - (CGRectGetMaxX(stateImage.frame) + 12), 14);
+        [tapView addSubview:stateLabel];
+        //时间
+        UILabel *timeLabel = [UILabel publicLab:stateTimeStr textColor:TCUIColorFromRGB(0x999999) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:12 numberOfLines:0];
+        timeLabel.frame = CGRectMake(CGRectGetMaxX(stateImage.frame) + 12, CGRectGetMaxY(stateLabel.frame) + 8, WIDTH/2, 12);
+        [tapView addSubview:timeLabel];
+        //小三角
+        UIImageView *sanjiaoImage = [[UIImageView alloc] init];
+        sanjiaoImage.image = [UIImage imageNamed:@"进入三角"];
+        sanjiaoImage.frame = CGRectMake(WIDTH - 16 - 8 - 5,(66 - 8)/2, 5, 8);
+        [tapView addSubview:sanjiaoImage];
+        //线
+        UIView *line_oneView = [[UIView alloc] init];
+        line_oneView.frame = CGRectMake(8, CGRectGetMaxY(timeLabel.frame) + 15, WIDTH - 16 - 16, 1);
+        line_oneView.backgroundColor = TCLineColor;
+        [tapView addSubview:line_oneView];
+        //地址的View
+        UIView *ardessView = [[UIView alloc] init];
+        ardessView.frame = CGRectMake(0, CGRectGetMaxY(line_oneView.frame), WIDTH - 16, 94);
+        ardessView.backgroundColor = TCUIColorFromRGB(0xFFFFFF);
+        [backView addSubview:ardessView];
+    
+        //姓名
+        UILabel *nameLabel = [UILabel publicLab:self.messDic[@"address"][@"name"] textColor:TCUIColorFromRGB(0x333333) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        nameLabel.frame =CGRectMake(38, 16, 42, 18);
+        CGSize size_name = [nameLabel sizeThatFits:CGSizeMake(WIDTH - 16, 14)];
+        nameLabel.frame = CGRectMake(38,  16, size_name.width, 18);
+        [ardessView addSubview:nameLabel];
+        //电话
+        
+        UILabel *phoneLabel = [UILabel publicLab:self.messDic[@"address"][@"mobile"] textColor:TCUIColorFromRGB(0x333333) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        phoneLabel.frame =CGRectMake(CGRectGetMaxX(nameLabel.frame) + 16, 16, WIDTH - 16 - 12 - (CGRectGetMaxX(nameLabel.frame) + 16), 18);
+        [ardessView addSubview:phoneLabel];
+        
+        //地址
+        NSString *adressStr = [self.messDic[@"address"][@"locaddress"] stringByAppendingString:self.messDic[@"address"][@"address"]];
+        UILabel *adressLabel = [UILabel publicLab:adressStr textColor:TCUIColorFromRGB(0x666666) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        adressLabel.frame = CGRectMake(38, CGRectGetMaxY(phoneLabel.frame) + 8, WIDTH - 16 - 25 - 38, 36);
+        CGSize size_adress = [adressLabel sizeThatFits:CGSizeMake(WIDTH - 16 - 25 - 38, MAXFLOAT)];//根据文字的长度返回一个最佳宽度和高度
+        adressLabel.frame = CGRectMake(38, CGRectGetMaxY(phoneLabel.frame) + 8, WIDTH - 16 - 25 - 38, size_adress.height);
+        [ardessView addSubview:adressLabel];
+        //线
+        UIView *line_twoView = [[UIView alloc] init];
+        line_twoView.backgroundColor = TCLineColor;
+        line_twoView.frame = CGRectMake(8, CGRectGetMaxY(adressLabel.frame) + 16, WIDTH - 16 - 16, 1);
+        [ardessView addSubview:line_twoView];
+        ardessView.frame = CGRectMake(0, CGRectGetMaxY(line_oneView.frame), WIDTH - 16, CGRectGetMaxY(line_twoView.frame));
+        
+        //定位icon
+        UIImageView *locaImage = [[UIImageView alloc] init];
+        locaImage.image = [UIImage imageNamed:@"地址图标"];
+        locaImage.frame = CGRectMake(12, (ardessView.frame.size.height - 16)/2, 14, 16);
+        [ardessView addSubview:locaImage];
+        //备注的icon
+        UIImageView *totleImage = [[UIImageView alloc] init];
+        totleImage.image = [UIImage imageNamed:@"备注图标"];
+        totleImage.frame = CGRectMake(12, CGRectGetMaxY(ardessView.frame) + 12, 22, 22);
+        [backView addSubview:totleImage];
+        //备注
+        UILabel *totleLabel = [UILabel publicLab:@"备注：" textColor:TCUIColorFromRGB(0x4C4C4C) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Medium" size:14 numberOfLines:0];
+        totleLabel.frame = CGRectMake(38, CGRectGetMaxY(ardessView.frame), 42, 50);
+        [backView addSubview:totleLabel];
+        //虚
+       
+        UILabel *totlePlaLabel = [UILabel publicLab:self.messDic[@"remark"] textColor:TCUIColorFromRGB(0x999999) textAlignment:NSTextAlignmentLeft fontWithName:@"PingFangSC-Regular" size:14 numberOfLines:0];
+        if ([self.messDic[@"remark"] isEqualToString:@""]){
+            totlePlaLabel.text = @"暂无备注";
+        }
+        totlePlaLabel.frame = CGRectMake(CGRectGetMaxX(totleLabel.frame), CGRectGetMaxY(ardessView.frame), WIDTH - 16 - 8 - (CGRectGetMaxX(totleLabel.frame)), 50);
+        [backView addSubview:totlePlaLabel];
+        backView.frame = CGRectMake(8, 0, WIDTH - 16, CGRectGetMaxY(totlePlaLabel.frame));
+        cellSize.size.height = backView.frame.size.height;
+        return cell;
+    } else if (indexPath.section == 2){
+        //店铺信息
+        TCOrderGoodsTableViewCell *Goodscell = [[TCOrderGoodsTableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"Goodscell"];
+        
+        if (self.goodsArr.count != 0){
+            Goodscell.model = self.goodsArr[indexPath.row];
+        } else {
+            NSLog(@"无数据");
+        }
+        Goodscell.selectionStyle = UITableViewCellSelectionStyleNone;
+        Goodscell.backgroundColor = TCBgColor;
+        return Goodscell;
+    } else if (indexPath.section == 3){
+        static NSString *ID = @"Specialcell";
+        TCSpecialTableViewCell *specialCell = [tableView dequeueReusableCellWithIdentifier:ID];
+        specialCell = [[TCSpecialTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:ID andtypeStr:@"1" andorderDic:@"2" andAgain:self.messDic];
+        if (indexPath.row < self.disCountArr.count){
+            if (self.disCountArr.count != 0){
+                specialCell.model = self.disCountArr[indexPath.row];
+
+            } else {
+                NSLog(@"无数据");
+            }
+        }
+        if (indexPath.row == self.disCountArr.count){
+            specialCell = [[TCSpecialTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:ID andtypeStr:@"4" andorderDic:@"2" andAgain:self.messDic];
+        }
+
+        specialCell.selectionStyle = UITableViewCellSelectionStyleNone;
+        specialCell.backgroundColor = TCBgColor;
+        return specialCell;
+    } else if (indexPath.section == 4){
+        TCPayStyeTableViewCell *PayStyescell = [[TCPayStyeTableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"PayStyescell" andDic:self.messDic];
+        NSLog(@"%@",self.messDic);
+        PayStyescell.sendTimeLabel.text = self.messDic[@"expectTime"];
+        PayStyescell.selectionStyle = UITableViewCellSelectionStyleNone;
+        PayStyescell.backgroundColor = TCBgColor;
+        return PayStyescell;
+    }
+    
+    return cell;
+}
+
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+}
+
+#pragma mark -- 键盘上下滑
+- (void)sendGlideValue
+{
+    NSTimeInterval animationDuration = 0.30f;
+    [UIView beginAnimations:@ "ResizeForKeyboard" context:nil];
+    [UIView setAnimationDuration:animationDuration];
+    //恢复屏幕
+    self.view.frame = CGRectMake(0.0f, 0.0f, self.view.frame.size.width, self.view.frame.size.height);
+    [UIView commitAnimations];
+    [self.view endEditing:YES];
+}
+
+- (void)upglideValue
+{
+    NSTimeInterval animationDuration = 0.30f;
+    [UIView beginAnimations:@ "ResizeForKeyboard" context:nil];
+    [UIView setAnimationDuration:animationDuration];
+    //将视图的Y坐标向上移动，以使下面腾出地方用于软键盘的显示
+    /*屏幕上移的高度，可以自己定*/
+    self.view.frame = CGRectMake(0.0f,- 216 + 40, self.view.frame.size.width, self.view.frame.size.height);
+    [UIView commitAnimations];
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    NSTimeInterval animationDuration = 0.30f;
+    [UIView beginAnimations:@ "ResizeForKeyboard" context:nil];
+    [UIView setAnimationDuration:animationDuration];
+    //恢复屏幕
+    self.view.frame = CGRectMake(0.0f, 0.0f, self.view.frame.size.width, self.view.frame.size.height);
+    [UIView commitAnimations];
+    [self.view endEditing:YES];
+}
+
+//设置不同字体颜色
+-(void)fuwenbenLabel:(UILabel *)labell FontNumber:(id)font AndRange:(NSRange)range AndColor:(UIColor *)vaColor
+{
+    NSMutableAttributedString *str = [[NSMutableAttributedString alloc] initWithString:labell.text];
+    
+    //设置字号
+    [str addAttribute:NSFontAttributeName value:font range:range];
+    
+    //设置文字颜色
+    [str addAttribute:NSForegroundColorAttributeName value:vaColor range:range];
+    
+    labell.attributedText = str;
+}
+#pragma mark -- 去支付
+- (void)goPat:(UIButton *)sender
+{
+    NSLog(@"去支付");
+}
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+#pragma mark -- 进入状态
+- (void)tap
+{
+    NSLog(@"订单跟踪");
+   
+    TCTrackingOrderViewController *trackOrderVC = [[TCTrackingOrderViewController alloc] init];
+    trackOrderVC.statuArr = self.messDic[@"status_info"];
+    trackOrderVC.messDic = self.messDic;
+    trackOrderVC.wuliStr = [NSString stringWithFormat:@"%@",self.messDic[@"hasExpress"]];
+    [self.navigationController pushViewController:trackOrderVC animated:YES];
+}
+
+#pragma mark -- 进入店铺
+- (void)tapShop
+{
+    //如果是3487团购
+    if ([self.shopidStr isEqualToString:@"3487"]){
+//        self.tabBarController.selectedIndex = 1;
+    } else {
+        TCShopMessageViewController *shopMessageVC = [[TCShopMessageViewController alloc] init];
+        shopMessageVC.shopID = self.shopidStr;
+        shopMessageVC.goodsID = @"0";
+        shopMessageVC.goodCateID = @"0";
+        shopMessageVC.isShouCang = YES;
+        [self.navigationController pushViewController:shopMessageVC animated:YES];
+    }
+}
+
+//格式话小数 四舍五入类型
+- (NSString *) decimalwithFormat:(NSString *)format  floatV:(float)floatV
+{
+    NSNumberFormatter *numberFormatter = [[NSNumberFormatter alloc] init];
+    
+    [numberFormatter setPositiveFormat:format];
+    
+    return  [numberFormatter stringFromNumber:[NSNumber numberWithFloat:floatV]];
+}
+
+- (void)clickRightBtn:(UIButton *)sender
+{
+    if (_isTuanGou){
+        //拨打电话
+        NSString * str=[[NSMutableString alloc] initWithFormat:@"tel:%@",@"400-1111-228"];
+        // NSLog(@"str======%@",str);
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:str]];
+    } else {
+        //拨打电话
+        NSString * str=[[NSMutableString alloc] initWithFormat:@"tel:%@",self.messDic[@"shop"][@"tel"]];
+        if (str == nil){
+            [TCProgressHUD showMessage:@"暂无电话"];
+        } else {
+            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:str]];
+        }
+        // NSLog(@"str======%@",str);
+    }
+}
+
+#pragma mark -- 申请退款
+- (void)refundOrdelValue
+{
+    NSLog(@"hhhhhh");
+    TCRefundViewController *refundOrderVC = [[TCRefundViewController alloc] init];
+    [self.navigationController pushViewController:refundOrderVC animated:YES];
+}
+
+#pragma mark -- 去评价
+- (void)orderCommitValue
+{
+    TCOrderCommitViewController *orderCommitVC = [[TCOrderCommitViewController alloc] init];
+
+    [self.navigationController pushViewController:orderCommitVC animated:YES];
+}
+#pragma mark -- 确认收货
+- (void)sendOrderValue
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"确认商品已到达您手中？" message:nil preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"确认送达" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"点错了" style:UIAlertActionStyleCancel handler:nil]];
+    [self.navigationController presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark -- 催发货的接口
+- (void)expediteQuest:(NSString *)orderID
+{
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+    NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+    
+    NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"orderid":orderID,@"timestamp":timeStr};
+    NSLog(@"%@",dic);
+    NSString *signStr = [TCServerSecret signStr:dic];
+    
+    NSDictionary *paramters = @{@"mid":midStr,@"token":tokenStr,@"orderid":orderID,@"timestamp":timeStr,@"sign":signStr};
+    [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101018"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+        NSLog(@"%@--%@",jsonDic,jsonStr);
+        [TCProgressHUD showMessage:[NSString stringWithFormat:@"%@",jsonDic[@"msg"]]];
+        
+    } failure:^(NSError *error) {
+        nil;
+    }];
+}
+
+#pragma mark -- 确认收货的请求
+-(void)ConfirmationRequest:(NSString *)orderid{
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+    NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+    NSString *terminal = @"IOS";
+    NSString *mmdid = [TCGetDeviceId getDeviceId];
+    NSString *deviceid = [TCDeviceName getDeviceName];
+    //    NSString *pageStr = [NSString stringWithFormat:@"%d",page];
+    NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"orderid":orderid,@"timestamp":timeStr,@"terminal":terminal,@"mmdid":mmdid,@"deviceid":deviceid};
+    NSLog(@"%@",dic);
+    NSString *signStr = [TCServerSecret signStr:dic];
+    
+    NSDictionary *paramters = @{@"mid":midStr,@"token":tokenStr,@"timestamp":timeStr,@"sign":signStr,@"orderid":orderid,@"terminal":terminal,@"mmdid":mmdid,@"deviceid":deviceid};
+    [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"101014"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+        NSLog(@"%@--%@",jsonDic,jsonStr);
+        NSString *codeStr = [NSString stringWithFormat:@"%@",jsonDic[@"code"]];
+        if ([codeStr isEqualToString:@"1"]) {
+            [TCProgressHUD showMessage:jsonDic[@"msg"]];
+        }else{
+            [TCProgressHUD showMessage:[NSString stringWithFormat:@"%@",jsonDic[@"msg"]]];
+        }
+    } failure:^(NSError *error) {
+        nil;
+    }];
+}
+
+#pragma mark -- 再来一单的请求  //这里是先请求订单详情
+- (void)againOrder:(NSString *)order
+{
+    NSString *timeStr = [TCGetTime getCurrentTime];
+    NSString *midStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userID"]];
+    NSString *tokenStr = [NSString stringWithFormat:@"%@",[self.userDefaults valueForKey:@"userToken"]];
+    
+    NSDictionary *dic = @{@"mid":midStr,@"token":tokenStr,@"orderid":order,@"timestamp":timeStr};
+    NSLog(@"%@",dic);
+    NSString *signStr = [TCServerSecret signStr:dic];
+    
+    NSDictionary *paramters = @{@"mid":midStr,@"token":tokenStr,@"orderid":order,@"timestamp":timeStr,@"sign":signStr};
+    [TCNetworking postWithTcUrlString:[TCServerSecret loginAndRegisterSecretOffline:@"102014"] paramter:paramters success:^(NSString *jsonStr, NSDictionary *jsonDic) {
+        NSLog(@"%@--%@",jsonDic,jsonStr);
+        NSString *codeStr = [NSString stringWithFormat:@"%@",jsonDic[@"code"]];
+        if ([codeStr isEqualToString:@"1"]){
+            //移除数组多余元素
+            NSArray *arr = jsonDic[@"data"][@"goods"];
+            NSMutableArray *newarr = [NSMutableArray array];
+            for (int i = 0; i < arr.count; i++) {
+                NSString *currentCount;
+                
+                currentCount = arr[i][@"amount"];
+                NSDictionary *dic;
+                NSString *typeStr = [NSString stringWithFormat:@"%@",jsonDic[@"data"][@"type"]];
+                if ([typeStr isEqualToString:@"1"]){ //团购
+                    dic = @{@"amount":currentCount, @"id":arr[i][@"goodsid"], @"price":arr[i][@"new_price"], @"name":arr[i][@"name"], @"pic":arr[i][@"src"],@"specID":arr[i][@"specid"]};
+                } else {
+                    dic = @{@"amount":currentCount, @"id":arr[i][@"goodsid"], @"price":arr[i][@"new_price"], @"name":arr[i][@"name"], @"pic":arr[i][@"src"]};
+                }
+                [newarr addObject: dic];
+            }
+            
+            TCSubmitViewController *commit = [[TCSubmitViewController alloc]init];
+            commit.shopMuArr = newarr;
+            commit.messDic = jsonDic[@"data"];
+            commit.agianDic = jsonDic[@"data"];
+            commit.typeStr = [NSString stringWithFormat:@"%@",jsonDic[@"data"][@"type"]];
+            commit.zailai = YES;
+            commit.shopIDStr = [NSString stringWithFormat:@"%@",jsonDic[@"data"][@"shopid"]];
+            commit.disPriceStr = jsonDic[@"data"][@"distributionPrice"];
+            [[NSNotificationCenter defaultCenter]postNotificationName:@"hiddenbar" object:nil];
+            [self.navigationController pushViewController:commit animated:YES];
+        }
+    } failure:^(NSError *error) {
+        nil;
+    }];
+}
+
+//取消订单
+- (void)upDate
+{
+    [self createQuest];
+    [self.listTabelView reloadData];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"quxiaoorder" object:nil];
+}
+
+//定时器倒计时结束
+- (void)sendValue:(NSString *)orderID
+{
+    self.idStr = orderID;
+    [self createQuest];
+    [self.listTabelView reloadData];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"quxiaoorder" object:nil];
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

@@ -1,0 +1,23 @@
+//
+//  TCNearAddInfo.h
+//  ShunDaoJia
+//
+//  Created by 吕松松 on 2017/12/27.
+//  Copyright © 2017年 jinshuaier. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+
+@interface TCNearAddInfo : NSObject
+@property (nonatomic, strong) NSString *name;
+@property (nonatomic, strong) NSString *district;
+@property (nonatomic, strong) NSString *address;
+@property (nonatomic, strong) NSString *longitude;//经度
+@property (nonatomic, strong) NSString *latitude;//纬度
+@property (nonatomic, assign) NSInteger cellHeight;
+
+
+
++ (id)orderInfoWithDictionary:(NSDictionary *)dictInfo;
+
+@end

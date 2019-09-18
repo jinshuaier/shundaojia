@@ -1,0 +1,31 @@
+//
+//  TCHongbaoTableViewCell.m
+//  ShunDaoJia
+//
+//  Created by 胡高广 on 2018/4/19.
+//  Copyright © 2018年 jinshuaier. All rights reserved.
+//
+
+#import "TCHongbaoTableViewCell.h"
+
+@implementation TCHongbaoTableViewCell
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier andmes:(NSDictionary *)dic{
+    if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
+        _dic = dic;
+        [self create];
+    }
+    return self;
+}
+
+- (void)create{
+    NSLog(@"红包");
+}
+
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+@end
